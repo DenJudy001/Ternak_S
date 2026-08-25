@@ -73,6 +73,9 @@ frontend/dist-ssr/
 .env
 .env.*
 !.env.example
+alembic.ini
+!alembic.ini.example
+
 
 # IDE / Editor files
 .vscode/
