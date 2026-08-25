@@ -5,6 +5,7 @@ from app.models.produksi_telur import ProduksiTelur
 from app.models.pengeluaran import Pengeluaran, KategoriPengeluaran
 from app.models.penjualan import Penjualan, SatuanJual
 from app.models.stok_telur import StokTelur
+from app.models.user import User
 
 __all__ = [
     "Base",
@@ -17,4 +18,5 @@ __all__ = [
     "Penjualan",
     "SatuanJual",
     "StokTelur",
+    "User",
 ]

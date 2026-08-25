@@ -7,10 +7,18 @@ class Settings(BaseSettings):
     # App Settings
     PROJECT_NAME: str = "SiTernak API"
     ENVIRONMENT: str = "development"
-    SECRET_KEY: str = "siternak-super-secret-key-change-in-production-12345"
+    SECRET_KEY: str
     API_V1_STR: str = "/api/v1"
     PORT: int = 8000
     HOST: str = "0.0.0.0"
+
+    # Security & JWT Configuration
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day (1440 minutes)
+
+    # Initial User Seeder Configuration
+    INITIAL_USER_USERNAME: str = "admin"
+    INITIAL_USER_PASSWORD: str = "admin123"
 
     # CORS Configuration
     BACKEND_CORS_ORIGINS: Union[List[str], str] = [
@@ -22,7 +30,7 @@ class Settings(BaseSettings):
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "postgres"
+    POSTGRES_PASSWORD: str
     POSTGRES_DB: str = "siternak_db"
 
     # Connection Pool Settings
