@@ -1,5 +1,5 @@
 from typing import List, Union
-from pydantic import AnyHttpUrl, field_validator
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,6 +15,9 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
+
+    # Database Configuration
+    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/siternak_db"
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod

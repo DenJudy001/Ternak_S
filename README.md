@@ -71,16 +71,23 @@ SiTernak/
    ```bash
    pip install -r requirements.txt
    ```
-4. Salin environment file:
+4. Salin template konfigurasi & environment:
    ```bash
    cp .env.example .env
-   # Di Windows CMD/PowerShell: copy .env.example .env
+   cp alembic.ini.example alembic.ini
+   # Di Windows CMD/PowerShell:
+   # copy .env.example .env
+   # copy alembic.ini.example alembic.ini
    ```
-5. Jalankan server backend:
+5. Jalankan migrasi database (Alembic):
+   ```bash
+   alembic upgrade head
+   ```
+6. Jalankan server backend:
    ```bash
    uvicorn main:app --reload --port 8000
    ```
-6. Akses status server & dokumentasi OpenAPI interaktif:
+7. Akses status server & dokumentasi OpenAPI interaktif:
    - Health Check: [http://localhost:8000/health](http://localhost:8000/health)
    - Swagger UI Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
    - ReDoc: [http://localhost:8000/redoc](http://localhost:8000/redoc)
@@ -112,4 +119,4 @@ SiTernak/
 
 ## 📌 Status Roadmap Tiket
 - [x] **T0.1**: Inisialisasi struktur monorepo, FastAPI skeleton, React Vite + Tailwind CSS, `.gitignore`, dan README.
-- [ ] **T0.2**: Setup PostgreSQL, integrasi SQLAlchemy & Alembic migration.
+- [x] **T0.2**: Setup PostgreSQL, model SQLAlchemy (6 tabel), & migrasi Alembic.
