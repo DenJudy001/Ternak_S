@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.routers.health import router as health_router
+from app.routers.auth import router as auth_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -22,6 +23,7 @@ if settings.BACKEND_CORS_ORIGINS:
 
 # Include Routers
 app.include_router(health_router)
+app.include_router(auth_router, prefix=settings.API_V1_STR)
 
 
 @app.get("/", tags=["Root"])
@@ -30,6 +32,7 @@ async def root():
         "message": f"Welcome to {settings.PROJECT_NAME}",
         "docs": "/docs",
         "health": "/health",
+        "auth": f"{settings.API_V1_STR}/auth",
     }
 
 
