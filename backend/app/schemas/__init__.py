@@ -6,6 +6,12 @@ from app.schemas.auth import (
     UserResponse,
     MessageResponse,
 )
+from app.schemas.kandang import (
+    KandangBase,
+    KandangCreate,
+    KandangUpdate,
+    KandangResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -14,4 +20,8 @@ __all__ = [
     "TokenPayload",
     "UserResponse",
     "MessageResponse",
+    "KandangBase",
+    "KandangCreate",
+    "KandangUpdate",
+    "KandangResponse",
 ]
