@@ -5,6 +5,11 @@ import {
   updateKandang,
 } from '../services/kandangService'
 import {
+  createMortalitas,
+  getMortalitasByKandang,
+  getAllMortalitas,
+} from '../services/mortalitasService'
+import {
   Plus,
   Edit2,
   Calendar,
@@ -17,6 +22,10 @@ import {
   Home,
   Activity,
   Layers,
+  TrendingDown,
+  Skull,
+  History,
+  FileText,
 } from 'lucide-react'
 
 export function KandangPage() {
@@ -29,16 +38,18 @@ export function KandangPage() {
   // Modal States
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showMortalitasModal, setShowMortalitasModal] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  // Form Create State
+  // Form Create Kandang State
   const [createForm, setCreateForm] = useState({
     nama_kandang: '',
     tanggal_mulai: new Date().toISOString().split('T')[0],
     jumlah_awal: '',
   })
 
-  // Form Edit State
+  // Form Edit Kandang State
   const [selectedKandang, setSelectedKandang] = useState(null)
   const [editForm, setEditForm] = useState({
     nama_kandang: '',
@@ -46,6 +57,19 @@ export function KandangPage() {
     status: 'aktif',
     jumlah_saat_ini: '',
   })
+
+  // Form Mortalitas State
+  const [mortalitasForm, setMortalitasForm] = useState({
+    kandang_id: '',
+    tanggal: new Date().toISOString().split('T')[0],
+    jumlah: '',
+    keterangan: '',
+  })
+
+  // History Mortalitas State
+  const [historyList, setHistoryList] = useState([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [historyKandangName, setHistoryKandangName] = useState('')
 
   const loadKandang = async () => {
     setLoading(true)
@@ -143,12 +167,100 @@ export function KandangPage() {
     }
   }
 
+  // Open Mortalitas Modal
+  const openMortalitasModal = (kandang = null) => {
+    setError('')
+    setSuccessMsg('')
+    const activeKandang = kandangList.filter((k) => k.status === 'aktif')
+    const defaultId = kandang ? kandang.id : activeKandang.length > 0 ? activeKandang[0].id : ''
+    setMortalitasForm({
+      kandang_id: defaultId,
+      tanggal: new Date().toISOString().split('T')[0],
+      jumlah: '',
+      keterangan: '',
+    })
+    setShowMortalitasModal(true)
+  }
+
+  // Handle Mortalitas Submit
+  const handleMortalitasSubmit = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    setError('')
+    setSuccessMsg('')
+
+    try {
+      const selectedK = kandangList.find((k) => k.id === parseInt(mortalitasForm.kandang_id, 10))
+      if (!selectedK) {
+        throw new Error('Pilih kandang aktif terlebih dahulu.')
+      }
+
+      const jumlahMati = parseInt(mortalitasForm.jumlah, 10)
+      if (isNaN(jumlahMati) || jumlahMati <= 0) {
+        throw new Error('Jumlah kematian harus berupa angka lebih dari 0.')
+      }
+
+      if (jumlahMati > selectedK.jumlah_saat_ini) {
+        throw new Error(
+          `Jumlah kematian (${jumlahMati} ekor) melebihi populasi saat ini (${selectedK.jumlah_saat_ini} ekor).`
+        )
+      }
+
+      const payload = {
+        kandang_id: selectedK.id,
+        tanggal: mortalitasForm.tanggal,
+        jumlah: jumlahMati,
+        keterangan: mortalitasForm.keterangan.trim() || undefined,
+      }
+
+      await createMortalitas(payload)
+      setSuccessMsg(`Mortalitas ${jumlahMati} ekor pada '${selectedK.nama_kandang}' berhasil dicatat! Populasi ter-update otomatis.`)
+      setShowMortalitasModal(false)
+      await loadKandang()
+    } catch (err) {
+      setError(err.message || 'Gagal mencatat mortalitas.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // Open History Modal
+  const openHistoryModal = async (kandang = null) => {
+    setShowHistoryModal(true)
+    setLoadingHistory(true)
+    setHistoryList([])
+    try {
+      if (kandang) {
+        setHistoryKandangName(kandang.nama_kandang)
+        const data = await getMortalitasByKandang(kandang.id)
+        setHistoryList(data)
+      } else {
+        setHistoryKandangName('Seluruh Kandang')
+        const data = await getAllMortalitas()
+        setHistoryList(data)
+      }
+    } catch (err) {
+      setError(err.message || 'Gagal memuat riwayat mortalitas.')
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+
   // Stats calculation
   const totalKandang = kandangList.length
   const totalAktif = kandangList.filter((k) => k.status === 'aktif').length
   const totalAyamHidup = kandangList
     .filter((k) => k.status === 'aktif')
     .reduce((acc, curr) => acc + curr.jumlah_saat_ini, 0)
+  const totalKematianAkumulasi = kandangList.reduce(
+    (acc, curr) => acc + Math.max(0, curr.jumlah_awal - curr.jumlah_saat_ini),
+    0
+  )
+
+  const activeKandangList = kandangList.filter((k) => k.status === 'aktif')
+  const currentSelectedMortalitasKandang = activeKandangList.find(
+    (k) => k.id === parseInt(mortalitasForm.kandang_id, 10)
+  )
 
   return (
     <div className="space-y-6">
@@ -157,28 +269,47 @@ export function KandangPage() {
         <div>
           <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
             <Home className="w-6 h-6 text-emerald-400" />
-            Manajemen Kandang
+            Manajemen Kandang & Populasi
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Setup kandang awal, pantau populasi ayam hidup, dan kelola status siklus kandang.
+            Setup kandang awal, catat mortalitas harian (auto-decrement ACID), dan monitor kelangsungan hidup ayam.
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setError('')
-            setSuccessMsg('')
-            setShowCreateModal(true)
-          }}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/25 transition active:scale-95"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Tambah Kandang Baru</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => openHistoryModal(null)}
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition"
+          >
+            <History className="w-4 h-4 text-slate-400" />
+            <span>Riwayat Kematian</span>
+          </button>
+
+          <button
+            onClick={() => openMortalitasModal(null)}
+            disabled={activeKandangList.length === 0}
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-xs border border-rose-500/30 transition disabled:opacity-50"
+          >
+            <TrendingDown className="w-4 h-4 text-rose-400" />
+            <span>Catat Mortalitas</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setError('')
+              setSuccessMsg('')
+              setShowCreateModal(true)
+            }}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/25 transition active:scale-95"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Tambah Kandang</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-slate-400">Total Kandang</p>
@@ -201,13 +332,25 @@ export function KandangPage() {
 
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-400">Total Populasi Ayam Hidup</p>
+            <p className="text-xs font-medium text-slate-400">Populasi Hidup (Aktif)</p>
             <p className="text-2xl font-bold text-white mt-1">
               {totalAyamHidup.toLocaleString('id-ID')} <span className="text-xs text-slate-400 font-normal">ekor</span>
             </p>
           </div>
           <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
             <Users className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-slate-400">Akumulasi Kematian</p>
+            <p className="text-2xl font-bold text-rose-400 mt-1">
+              {totalKematianAkumulasi.toLocaleString('id-ID')} <span className="text-xs text-slate-400 font-normal">ekor</span>
+            </p>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+            <Skull className="w-5 h-5" />
           </div>
         </div>
       </div>
@@ -286,15 +429,6 @@ export function KandangPage() {
               ? `Tidak ditemukan kandang dengan status '${filterStatus}'.`
               : 'Mulai dengan menambahkan data setup kandang pertama Anda.'}
           </p>
-          {filterStatus === 'semua' && (
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs font-semibold border border-slate-700 transition"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Tambah Kandang Sekarang</span>
-            </button>
-          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -303,6 +437,7 @@ export function KandangPage() {
               kandang.jumlah_awal > 0
                 ? ((kandang.jumlah_saat_ini / kandang.jumlah_awal) * 100).toFixed(1)
                 : 0
+            const totalMatiKandang = Math.max(0, kandang.jumlah_awal - kandang.jumlah_saat_ini)
             const isAktif = kandang.status === 'aktif'
 
             return (
@@ -356,6 +491,15 @@ export function KandangPage() {
                         {kandang.jumlah_saat_ini.toLocaleString('id-ID')} ekor
                       </span>
                     </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-rose-400">
+                        <TrendingDown className="w-3.5 h-3.5" /> Total Kematian:
+                      </span>
+                      <span className="font-semibold text-rose-400">
+                        {totalMatiKandang.toLocaleString('id-ID')} ekor
+                      </span>
+                    </div>
                   </div>
 
                   {/* Progress Bar Survival */}
@@ -375,14 +519,34 @@ export function KandangPage() {
                   </div>
                 </div>
 
-                <div className="mt-5 pt-4 border-t border-slate-800/80 flex items-center justify-end">
+                <div className="mt-5 pt-4 border-t border-slate-800/80 flex items-center justify-between gap-2">
                   <button
-                    onClick={() => openEditModal(kandang)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition"
+                    onClick={() => openHistoryModal(kandang)}
+                    title="Lihat riwayat kematian kandang ini"
+                    className="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs border border-slate-700 transition"
                   >
-                    <Edit2 className="w-3.5 h-3.5" />
-                    <span>Edit & Koreksi</span>
+                    <History className="w-3.5 h-3.5" />
                   </button>
+
+                  <div className="flex items-center gap-2">
+                    {isAktif && (
+                      <button
+                        onClick={() => openMortalitasModal(kandang)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-xs font-semibold text-rose-400 border border-rose-500/20 transition"
+                      >
+                        <TrendingDown className="w-3.5 h-3.5" />
+                        <span>Catat Mati</span>
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => openEditModal(kandang)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      <span>Edit</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )
@@ -540,9 +704,6 @@ export function KandangPage() {
                   onChange={(e) => setEditForm({ ...editForm, jumlah_saat_ini: e.target.value })}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  *Populasi awal tercatat: {selectedKandang.jumlah_awal} ekor.
-                </p>
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-800">
@@ -564,6 +725,192 @@ export function KandangPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Catat Mortalitas Baru */}
+      {showMortalitasModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <h3 className="font-bold text-lg text-white flex items-center gap-2">
+                <TrendingDown className="w-5 h-5 text-rose-400" />
+                Catat Kematian Ayam
+              </h3>
+              <button
+                onClick={() => setShowMortalitasModal(false)}
+                className="text-slate-400 hover:text-white transition p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleMortalitasSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Pilih Kandang Aktif
+                </label>
+                <select
+                  required
+                  value={mortalitasForm.kandang_id}
+                  onChange={(e) => setMortalitasForm({ ...mortalitasForm, kandang_id: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
+                >
+                  {activeKandangList.map((k) => (
+                    <option key={k.id} value={k.id}>
+                      {k.nama_kandang} (Populasi: {k.jumlah_saat_ini} ekor)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Tanggal Kematian
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={mortalitasForm.tanggal}
+                  onChange={(e) => setMortalitasForm({ ...mortalitasForm, tanggal: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Jumlah Kematian (Ekor)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max={currentSelectedMortalitasKandang?.jumlah_saat_ini || 99999}
+                  required
+                  placeholder="Contoh: 3"
+                  value={mortalitasForm.jumlah}
+                  onChange={(e) => setMortalitasForm({ ...mortalitasForm, jumlah: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+                {currentSelectedMortalitasKandang && (
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    *Maksimum input: {currentSelectedMortalitasKandang.jumlah_saat_ini} ekor. Populasi kandang akan berkurang otomatis.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Keterangan / Diagnosa (Opsional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Misal: Sakit CRD, Heat Stress, Kanibalisme"
+                  value={mortalitasForm.keterangan}
+                  onChange={(e) => setMortalitasForm({ ...mortalitasForm, keterangan: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowMortalitasModal(false)}
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs shadow-lg shadow-rose-500/20 transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Simpan Transaksi Kematian</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Riwayat Mortalitas */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <div>
+                <h3 className="font-bold text-lg text-white flex items-center gap-2">
+                  <History className="w-5 h-5 text-rose-400" />
+                  Riwayat Kematian: {historyKandangName}
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">Catatan log kematian ayam dan keterangan penyebab.</p>
+              </div>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="text-slate-400 hover:text-white transition p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-1">
+              {loadingHistory ? (
+                <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400">
+                  <Loader2 className="w-6 h-6 animate-spin text-rose-500" />
+                  <p className="text-xs font-medium">Memuat riwayat...</p>
+                </div>
+              ) : historyList.length === 0 ? (
+                <div className="py-12 text-center text-slate-500">
+                  <FileText className="w-10 h-10 mx-auto text-slate-700 mb-2" />
+                  <p className="text-sm font-medium text-slate-400">Belum ada catatan kematian ayam.</p>
+                </div>
+              ) : (
+                <div className="border border-slate-800 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-slate-800/80 text-slate-400 uppercase tracking-wider text-[10px] font-semibold border-b border-slate-700">
+                      <tr>
+                        <th className="px-4 py-3">Tanggal</th>
+                        <th className="px-4 py-3 text-right">Jumlah Mati</th>
+                        <th className="px-4 py-3">Keterangan / Diagnosa</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/80">
+                      {historyList.map((item) => (
+                        <tr key={item.id} className="hover:bg-slate-800/40 transition">
+                          <td className="px-4 py-3 font-medium text-white">
+                            {new Date(item.tanggal).toLocaleDateString('id-ID', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-rose-400">
+                            {item.jumlah} ekor
+                          </td>
+                          <td className="px-4 py-3 text-slate-400">
+                            {item.keterangan || '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-4 border-t border-slate-800 mt-4 flex items-center justify-between text-xs">
+              <span className="text-slate-400">
+                Total Record: <strong className="text-white">{historyList.length}</strong>
+              </span>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}
