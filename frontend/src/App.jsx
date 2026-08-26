@@ -82,11 +82,22 @@ function DashboardOverview({ onNavigate }) {
             </p>
           </div>
 
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 opacity-80">
-            <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mb-3">
-              <TrendingDown className="w-5 h-5" />
+          <div
+            onClick={() => onNavigate('kandang')}
+            className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-rose-500/50 transition cursor-pointer group relative overflow-hidden shadow-lg hover:shadow-rose-500/5"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 group-hover:scale-105 transition">
+                <TrendingDown className="w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded-full">
+                T1.2 Ready
+              </span>
             </div>
-            <h4 className="font-semibold text-white text-base mb-1">Mortalitas Ayam</h4>
+            <h4 className="font-bold text-white text-base mb-1 group-hover:text-rose-400 transition flex items-center justify-between">
+              <span>Mortalitas Ayam</span>
+              <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-rose-400 group-hover:translate-x-1 transition" />
+            </h4>
             <p className="text-xs text-slate-400 leading-relaxed">
               Monitoring kematian ayam harian untuk penyesuaian populasi dan analisis kesehatan.
             </p>
