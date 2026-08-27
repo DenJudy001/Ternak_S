@@ -15,6 +15,7 @@ from app.schemas.kandang import (
 from app.schemas.mortalitas import (
     MortalitasBase,
     MortalitasCreate,
+    MortalitasUpdate,
     MortalitasResponse,
 )
 
@@ -31,5 +32,6 @@ __all__ = [
     "KandangResponse",
     "MortalitasBase",
     "MortalitasCreate",
+    "MortalitasUpdate",
     "MortalitasResponse",
 ]

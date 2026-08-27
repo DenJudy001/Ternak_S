@@ -6,7 +6,12 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
-from app.schemas.mortalitas import MortalitasCreate, MortalitasResponse
+from app.schemas.auth import MessageResponse
+from app.schemas.mortalitas import (
+    MortalitasCreate,
+    MortalitasUpdate,
+    MortalitasResponse,
+)
 from app.services.mortalitas_service import MortalitasService
 
 router = APIRouter(prefix="/mortalitas", tags=["Mortalitas"])
@@ -86,3 +91,50 @@ def list_all_mortalitas(
         limit=limit,
         offset=offset
     )
+
+
+@router.patch(
+    "/{mortalitas_id}",
+    response_model=MortalitasResponse,
+    summary="Koreksi Data Mortalitas (Delta Update)",
+    responses={
+        200: {"description": "Data mortalitas berhasil dikoreksi dan populasi kandang disinkronisasi."},
+        400: {"description": "Nilai update tidak valid atau melebihi kapasitas kandang."},
+        401: {"description": "Belum terautentikasi."},
+        404: {"description": "Data mortalitas tidak ditemukan."},
+    },
+)
+def update_mortalitas_patch(
+    mortalitas_id: int,
+    mortalitas_in: MortalitasUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Mengoreksi catatan data kematian ayam.
+    Perubahan jumlah kematian akan secara otomatis menambah/mengurangi populasi kandang via Atomic Delta.
+    """
+    return MortalitasService.update_mortalitas(db, mortalitas_id, mortalitas_in)
+
+
+@router.delete(
+    "/{mortalitas_id}",
+    response_model=MessageResponse,
+    summary="Batalkan/Hapus Data Mortalitas (Reversal Stok)",
+    responses={
+        200: {"description": "Data mortalitas dibatalkan dan jumlah ayam dikembalikan ke kandang."},
+        400: {"description": "Kandang sudah afkir atau pengembalian stok melebihi kapasitas awal."},
+        401: {"description": "Belum terautentikasi."},
+        404: {"description": "Data mortalitas tidak ditemukan."},
+    },
+)
+def delete_mortalitas_endpoint(
+    mortalitas_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Membatalkan (menghapus) catatan kematian ayam dan mengembalikan populasi ayam ke kandang terkait secara atomik.
+    """
+    result = MortalitasService.delete_mortalitas(db, mortalitas_id)
+    return MessageResponse(**result)

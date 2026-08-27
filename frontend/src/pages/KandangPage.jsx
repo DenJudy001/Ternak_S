@@ -6,6 +6,8 @@ import {
 } from '../services/kandangService'
 import {
   createMortalitas,
+  updateMortalitas,
+  deleteMortalitas,
   getMortalitasByKandang,
   getAllMortalitas,
 } from '../services/mortalitasService'
@@ -26,6 +28,8 @@ import {
   Skull,
   History,
   FileText,
+  Trash2,
+  RotateCcw,
 } from 'lucide-react'
 
 export function KandangPage() {
@@ -40,6 +44,8 @@ export function KandangPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showMortalitasModal, setShowMortalitasModal] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [showEditMortalitasModal, setShowEditMortalitasModal] = useState(false)
+  const [showDeleteMortalitasModal, setShowDeleteMortalitasModal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   // Form Create Kandang State
@@ -66,10 +72,18 @@ export function KandangPage() {
     keterangan: '',
   })
 
+  // Edit Mortalitas State
+  const [selectedMortalitas, setSelectedMortalitas] = useState(null)
+  const [editMortalitasForm, setEditMortalitasForm] = useState({
+    tanggal: '',
+    jumlah: '',
+    keterangan: '',
+  })
+
   // History Mortalitas State
   const [historyList, setHistoryList] = useState([])
   const [loadingHistory, setLoadingHistory] = useState(false)
-  const [historyKandangName, setHistoryKandangName] = useState('')
+  const [historyKandangObj, setHistoryKandangObj] = useState(null)
 
   const loadKandang = async () => {
     setLoading(true)
@@ -229,13 +243,12 @@ export function KandangPage() {
     setShowHistoryModal(true)
     setLoadingHistory(true)
     setHistoryList([])
+    setHistoryKandangObj(kandang)
     try {
       if (kandang) {
-        setHistoryKandangName(kandang.nama_kandang)
         const data = await getMortalitasByKandang(kandang.id)
         setHistoryList(data)
       } else {
-        setHistoryKandangName('Seluruh Kandang')
         const data = await getAllMortalitas()
         setHistoryList(data)
       }
@@ -243,6 +256,87 @@ export function KandangPage() {
       setError(err.message || 'Gagal memuat riwayat mortalitas.')
     } finally {
       setLoadingHistory(false)
+    }
+  }
+
+  const reloadHistory = async () => {
+    if (historyKandangObj) {
+      const data = await getMortalitasByKandang(historyKandangObj.id)
+      setHistoryList(data)
+    } else {
+      const data = await getAllMortalitas()
+      setHistoryList(data)
+    }
+  }
+
+  // Open Edit Mortalitas Modal
+  const openEditMortalitasModal = (item) => {
+    setSelectedMortalitas(item)
+    setEditMortalitasForm({
+      tanggal: item.tanggal,
+      jumlah: item.jumlah,
+      keterangan: item.keterangan || '',
+    })
+    setShowEditMortalitasModal(true)
+  }
+
+  // Handle Edit Mortalitas Submit
+  const handleEditMortalitasSubmit = async (e) => {
+    e.preventDefault()
+    if (!selectedMortalitas) return
+
+    setSubmitting(true)
+    setError('')
+    setSuccessMsg('')
+
+    try {
+      const jumlahBaru = parseInt(editMortalitasForm.jumlah, 10)
+      if (isNaN(jumlahBaru) || jumlahBaru <= 0) {
+        throw new Error('Jumlah kematian harus berupa angka lebih dari 0.')
+      }
+
+      const payload = {
+        tanggal: editMortalitasForm.tanggal,
+        jumlah: jumlahBaru,
+        keterangan: editMortalitasForm.keterangan.trim() || undefined,
+      }
+
+      await updateMortalitas(selectedMortalitas.id, payload)
+      setSuccessMsg(`Catatan mortalitas #${selectedMortalitas.id} berhasil dikoreksi! Populasi kandang disinkronisasi otomatis via Atomic Delta.`)
+      setShowEditMortalitasModal(false)
+      await reloadHistory()
+      await loadKandang()
+    } catch (err) {
+      setError(err.message || 'Gagal mengoreksi data mortalitas.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // Open Delete Confirmation Modal
+  const openDeleteMortalitasModal = (item) => {
+    setSelectedMortalitas(item)
+    setShowDeleteMortalitasModal(true)
+  }
+
+  // Handle Delete Mortalitas Confirm
+  const handleDeleteMortalitasConfirm = async () => {
+    if (!selectedMortalitas) return
+
+    setSubmitting(true)
+    setError('')
+    setSuccessMsg('')
+
+    try {
+      const res = await deleteMortalitas(selectedMortalitas.id)
+      setSuccessMsg(res.message || `Data mortalitas #${selectedMortalitas.id} berhasil dibatalkan dan stok dikembalikan!`)
+      setShowDeleteMortalitasModal(false)
+      await reloadHistory()
+      await loadKandang()
+    } catch (err) {
+      setError(err.message || 'Gagal membatalkan data mortalitas.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -272,7 +366,7 @@ export function KandangPage() {
             Manajemen Kandang & Populasi
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Setup kandang awal, catat mortalitas harian (auto-decrement ACID), dan monitor kelangsungan hidup ayam.
+            Setup kandang awal, catat & koreksi mortalitas harian (Atomic Delta/Reversal), dan pantau populasi ayam.
           </p>
         </div>
 
@@ -835,17 +929,19 @@ export function KandangPage() {
         </div>
       )}
 
-      {/* MODAL: Riwayat Mortalitas */}
+      {/* MODAL: Riwayat Mortalitas (Base Level 1 -> z-50) */}
       {showHistoryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative max-h-[85vh] flex flex-col">
+          <div className="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
               <div>
                 <h3 className="font-bold text-lg text-white flex items-center gap-2">
                   <History className="w-5 h-5 text-rose-400" />
-                  Riwayat Kematian: {historyKandangName}
+                  Riwayat Kematian: {historyKandangObj ? historyKandangObj.nama_kandang : 'Seluruh Kandang'}
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">Catatan log kematian ayam dan keterangan penyebab.</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Catatan log kematian ayam. Anda dapat mengoreksi jumlah (Delta) atau membatalkan catatan (Reversal).
+                </p>
               </div>
               <button
                 onClick={() => setShowHistoryModal(false)}
@@ -874,6 +970,7 @@ export function KandangPage() {
                         <th className="px-4 py-3">Tanggal</th>
                         <th className="px-4 py-3 text-right">Jumlah Mati</th>
                         <th className="px-4 py-3">Keterangan / Diagnosa</th>
+                        <th className="px-4 py-3 text-right">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/80">
@@ -892,6 +989,24 @@ export function KandangPage() {
                           <td className="px-4 py-3 text-slate-400">
                             {item.keterangan || '-'}
                           </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="inline-flex items-center gap-1.5">
+                              <button
+                                onClick={() => openEditMortalitasModal(item)}
+                                title="Koreksi data kematian ini"
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => openDeleteMortalitasModal(item)}
+                                title="Batalkan & kembalikan stok ayam"
+                                className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -909,6 +1024,142 @@ export function KandangPage() {
                 className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition"
               >
                 Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Edit Catatan Mortalitas (Secondary Action Level 2 -> z-[60]) */}
+      {showEditMortalitasModal && selectedMortalitas && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <h3 className="font-bold text-lg text-white flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-emerald-400" />
+                Koreksi Mortalitas #{selectedMortalitas.id}
+              </h3>
+              <button
+                onClick={() => setShowEditMortalitasModal(false)}
+                className="text-slate-400 hover:text-white transition p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditMortalitasSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Tanggal Kematian
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={editMortalitasForm.tanggal}
+                  onChange={(e) => setEditMortalitasForm({ ...editMortalitasForm, tanggal: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Jumlah Kematian (Ekor)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={editMortalitasForm.jumlah}
+                  onChange={(e) => setEditMortalitasForm({ ...editMortalitasForm, jumlah: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  *Jumlah tercatat sebelumnya: <strong>{selectedMortalitas.jumlah} ekor</strong>. Selisih delta akan disinkronisasi ke populasi kandang secara otomatis.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Keterangan / Diagnosa
+                </label>
+                <input
+                  type="text"
+                  placeholder="Keterangan penyebab kematian"
+                  value={editMortalitasForm.keterangan}
+                  onChange={(e) => setEditMortalitasForm({ ...editMortalitasForm, keterangan: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowEditMortalitasModal(false)}
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Simpan Koreksi Delta</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Konfirmasi Hapus Mortalitas (Alert Dialog Level 3 -> z-[70]) */}
+      {showDeleteMortalitasModal && selectedMortalitas && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <h3 className="font-bold text-lg text-white flex items-center gap-2">
+                <RotateCcw className="w-5 h-5 text-amber-400" />
+                Batalkan Catatan Kematian
+              </h3>
+              <button
+                onClick={() => setShowDeleteMortalitasModal(false)}
+                className="text-slate-400 hover:text-white transition p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-sm text-slate-300 mb-6">
+              <p>
+                Anda akan membatalkan catatan kematian <strong>#{selectedMortalitas.id}</strong> sejumlah{' '}
+                <strong className="text-rose-400">{selectedMortalitas.jumlah} ekor</strong> (tanggal{' '}
+                {new Date(selectedMortalitas.tanggal).toLocaleDateString('id-ID')}).
+              </p>
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
+                ⚠️ Sebanyak <strong>{selectedMortalitas.jumlah} ekor</strong> ayam akan secara otomatis dikembalikan
+                ke populasi ayam hidup di kandang terkait.
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowDeleteMortalitasModal(false)}
+                disabled={submitting}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteMortalitasConfirm}
+                disabled={submitting}
+                className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs shadow-lg shadow-rose-500/20 transition flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Batalkan & Kembalikan Stok</span>
               </button>
             </div>
           </div>

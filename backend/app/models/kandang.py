@@ -27,7 +27,6 @@ class Kandang(Base):
     mortalitas_records = relationship(
         "Mortalitas",
         back_populates="kandang",
-        cascade="all, delete-orphan",
         passive_deletes=True
     )
     produksi_records = relationship(

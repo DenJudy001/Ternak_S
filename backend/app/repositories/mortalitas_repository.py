@@ -20,6 +20,30 @@ class MortalitasRepository:
         return db_mortalitas
 
     @staticmethod
+    def get_by_id(db: Session, mortalitas_id: int) -> Optional[Mortalitas]:
+        """
+        Mengambil 1 entitas mortalitas berdasarkan ID.
+        """
+        return db.query(Mortalitas).filter(Mortalitas.id == mortalitas_id).first()
+
+    @staticmethod
+    def update(db: Session, db_mortalitas: Mortalitas, update_dict: dict) -> Mortalitas:
+        """
+        Memperbarui atribut record mortalitas di database session.
+        """
+        for field, value in update_dict.items():
+            setattr(db_mortalitas, field, value)
+        db.add(db_mortalitas)
+        return db_mortalitas
+
+    @staticmethod
+    def delete(db: Session, db_mortalitas: Mortalitas) -> None:
+        """
+        Menghapus record fisik mortalitas dari database session.
+        """
+        db.delete(db_mortalitas)
+
+    @staticmethod
     def get_by_kandang(
         db: Session,
         kandang_id: int,

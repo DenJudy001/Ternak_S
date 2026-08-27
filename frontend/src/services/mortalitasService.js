@@ -23,6 +23,42 @@ export async function createMortalitas(payload) {
 }
 
 /**
+ * Memperbarui / mengoreksi data mortalitas dengan perhitungan Atomic Delta.
+ * payload: { tanggal?, jumlah?, keterangan? }
+ */
+export async function updateMortalitas(mortalitasId, payload) {
+  const response = await fetch(`${API_BASE_URL}/api/v1/mortalitas/${mortalitasId}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || 'Gagal mengoreksi data mortalitas.')
+  }
+
+  return response.json()
+}
+
+/**
+ * Membatalkan (menghapus) data mortalitas dan mengembalikan populasi ayam ke kandang.
+ */
+export async function deleteMortalitas(mortalitasId) {
+  const response = await fetch(`${API_BASE_URL}/api/v1/mortalitas/${mortalitasId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || 'Gagal membatalkan data mortalitas.')
+  }
+
+  return response.json()
+}
+
+/**
  * Mengambil riwayat mortalitas untuk satu kandang spesifik.
  */
 export async function getMortalitasByKandang(kandangId, limit = 100, offset = 0) {
