@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { getKandangList } from '../services/kandangService'
 import {
   createProduksiTelur,
   updateProduksiTelur,
   deleteProduksiTelur,
-  getAllProduksiTelur,
-  getProduksiTelurByKandang,
+  getRiwayatProduksi,
 } from '../services/produksiTelurService'
 import {
   Egg,
@@ -21,8 +20,9 @@ import {
   Layers,
   AlertTriangle,
   FileText,
-  HelpCircle,
   RotateCcw,
+  Filter,
+  SlidersHorizontal,
 } from 'lucide-react'
 
 export function ProduksiTelurPage() {
@@ -31,7 +31,12 @@ export function ProduksiTelurPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+
+  // Filter States
   const [filterKandang, setFilterKandang] = useState('semua')
+  const [datePreset, setDatePreset] = useState('semua') // 'semua' | 'today' | '7days' | '30days' | 'this_month' | 'custom'
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
 
   // Modal States
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -42,10 +47,19 @@ export function ProduksiTelurPage() {
   // 409 Conflict In-Form State
   const [duplicateConflict, setDuplicateConflict] = useState(null)
 
+  // Helper universal untuk format tanggal lokal YYYY-MM-DD
+  const formatLocalDate = (d = new Date()) => {
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+
   // Form Create State
   const [createForm, setCreateForm] = useState({
     kandang_id: '',
-    tanggal: new Date().toISOString().split('T')[0],
+    tanggal: formatLocalDate(),
     jumlah_butir_normal: '',
     jumlah_butir_retak: '0',
     jumlah_butir_pecah: '0',
@@ -62,27 +76,81 @@ export function ProduksiTelurPage() {
     catatan: '',
   })
 
-  // Load Data
-  const loadData = async () => {
+  // Helper date formatter for presets
+  const calculatePresetDates = (preset) => {
+    const today = new Date()
+
+    if (preset === 'today') {
+      const todayStr = formatLocalDate(today)
+      return { start: todayStr, end: todayStr }
+    } else if (preset === '7days') {
+      const past7 = new Date()
+      past7.setDate(today.getDate() - 6)
+      return { start: formatLocalDate(past7), end: formatLocalDate(today) }
+    } else if (preset === '30days') {
+      const past30 = new Date()
+      past30.setDate(today.getDate() - 29)
+      return { start: formatLocalDate(past30), end: formatLocalDate(today) }
+    } else if (preset === 'this_month') {
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+      return { start: formatLocalDate(firstDay), end: formatLocalDate(lastDay) }
+    }
+    return { start: '', end: '' }
+  }
+
+  // Handle preset change
+  const handlePresetChange = (preset) => {
+    setDatePreset(preset)
+    if (preset === 'semua') {
+      setStartDate('')
+      setEndDate('')
+    } else if (preset !== 'custom') {
+      const { start, end } = calculatePresetDates(preset)
+      setStartDate(start)
+      setEndDate(end)
+    }
+  }
+
+  // Load Kandang List once on mount
+  useEffect(() => {
+    getKandangList('aktif')
+      .then((data) => setKandangList(data))
+      .catch((err) => console.error('Failed to load kandang:', err))
+  }, [])
+
+  // Load Riwayat Produksi with active server-side filters
+  const loadRiwayat = async () => {
     setLoading(true)
     setError('')
     try {
-      const [kandangData, allProduksi] = await Promise.all([
-        getKandangList('aktif'),
-        getAllProduksiTelur(),
-      ])
-      setKandangList(kandangData)
-      setProduksiList(allProduksi)
+      const params = {}
+      if (filterKandang !== 'semua') {
+        params.kandangId = filterKandang
+      }
+      if (startDate) params.startDate = startDate
+      if (endDate) params.endDate = endDate
+
+      const data = await getRiwayatProduksi(params)
+      setProduksiList(data)
     } catch (err) {
-      setError(err.message || 'Gagal memuat data produksi telur.')
+      setError(err.message || 'Gagal memuat riwayat produksi telur.')
     } finally {
       setLoading(false)
     }
   }
 
+  // Reload when filters change
   useEffect(() => {
-    loadData()
-  }, [])
+    // If custom range selected, only trigger if both are set or both are empty
+    if (datePreset === 'custom') {
+      if ((startDate && endDate) || (!startDate && !endDate)) {
+        loadRiwayat()
+      }
+    } else {
+      loadRiwayat()
+    }
+  }, [filterKandang, datePreset, startDate, endDate])
 
   // Open Create Modal
   const openCreateModal = (kandangId = null) => {
@@ -93,7 +161,7 @@ export function ProduksiTelurPage() {
       kandangId || (kandangList.length > 0 ? kandangList[0].id : '')
     setCreateForm({
       kandang_id: defaultKandangId,
-      tanggal: new Date().toISOString().split('T')[0],
+      tanggal: formatLocalDate(),
       jumlah_butir_normal: '',
       jumlah_butir_retak: '0',
       jumlah_butir_pecah: '0',
@@ -132,10 +200,9 @@ export function ProduksiTelurPage() {
       await createProduksiTelur(payload)
       setSuccessMsg('Data produksi telur harian berhasil dicatat!')
       setShowCreateModal(false)
-      await loadData()
+      await loadRiwayat()
     } catch (err) {
       if (err.status === 409) {
-        // Find existing record in local list or set conflict info
         const existingRec = produksiList.find(
           (p) =>
             p.kandang_id === parseInt(createForm.kandang_id, 10) &&
@@ -162,8 +229,7 @@ export function ProduksiTelurPage() {
       setShowCreateModal(false)
       setDuplicateConflict(null)
     } else {
-      // Refresh list to find it
-      loadData().then(() => {
+      loadRiwayat().then(() => {
         setShowCreateModal(false)
         setDuplicateConflict(null)
       })
@@ -212,7 +278,7 @@ export function ProduksiTelurPage() {
       await updateProduksiTelur(selectedProduksi.id, payload)
       setSuccessMsg(`Data produksi telur #${selectedProduksi.id} berhasil diperbarui!`)
       setShowEditModal(false)
-      await loadData()
+      await loadRiwayat()
     } catch (err) {
       setError(err.message || 'Gagal memperbarui data produksi telur.')
     } finally {
@@ -238,7 +304,7 @@ export function ProduksiTelurPage() {
       const res = await deleteProduksiTelur(selectedProduksi.id)
       setSuccessMsg(res.message || `Data produksi #${selectedProduksi.id} berhasil dihapus.`)
       setShowDeleteModal(false)
-      await loadData()
+      await loadRiwayat()
     } catch (err) {
       setError(err.message || 'Gagal menghapus data produksi telur.')
     } finally {
@@ -246,16 +312,19 @@ export function ProduksiTelurPage() {
     }
   }
 
-  // Filtered List
-  const filteredList =
-    filterKandang === 'semua'
-      ? produksiList
-      : produksiList.filter((p) => p.kandang_id === parseInt(filterKandang, 10))
-
-  // KPI Calculations
-  const totalNormal = filteredList.reduce((acc, curr) => acc + curr.jumlah_butir_normal, 0)
-  const totalRetak = filteredList.reduce((acc, curr) => acc + curr.jumlah_butir_retak, 0)
-  const totalPecah = filteredList.reduce((acc, curr) => acc + curr.jumlah_butir_pecah, 0)
+  // KPI Calculations from Current Filtered List
+  const totalNormal = useMemo(
+    () => produksiList.reduce((acc, curr) => acc + curr.jumlah_butir_normal, 0),
+    [produksiList]
+  )
+  const totalRetak = useMemo(
+    () => produksiList.reduce((acc, curr) => acc + curr.jumlah_butir_retak, 0),
+    [produksiList]
+  )
+  const totalPecah = useMemo(
+    () => produksiList.reduce((acc, curr) => acc + curr.jumlah_butir_pecah, 0),
+    [produksiList]
+  )
   const totalSemuaButir = totalNormal + totalRetak + totalPecah
 
   // Form Live Calculations
@@ -276,10 +345,10 @@ export function ProduksiTelurPage() {
         <div>
           <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
             <Egg className="w-6 h-6 text-amber-400" />
-            Produksi Telur Harian
+            Riwayat & Pencatatan Produksi Telur
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Catat hasil panen telur (butir normal, retak, pecah) per kandang aktif dengan pencegahan duplikasi otomatis.
+            Filter riwayat panen telur berdasarkan kandang dan rentang tanggal dengan kalkulasi agregasi realtime.
           </p>
         </div>
 
@@ -290,16 +359,16 @@ export function ProduksiTelurPage() {
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/25 transition active:scale-95 disabled:opacity-50"
           >
             <Plus className="w-4 h-4" />
-            <span>+ Catat Produksi Telur</span>
+            <span>Catat Produksi Telur</span>
           </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* Mini KPI Summary Cards (Aggregated from Filter) */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-400">Total Telur Normal</p>
+            <p className="text-xs font-medium text-slate-400">Total Butir Normal</p>
             <p className="text-2xl font-bold text-emerald-400 mt-1">
               {totalNormal.toLocaleString('id-ID')} <span className="text-xs text-slate-400 font-normal">butir</span>
             </p>
@@ -311,7 +380,7 @@ export function ProduksiTelurPage() {
 
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-400">Telur Cangkang Retak</p>
+            <p className="text-xs font-medium text-slate-400">Cangkang Retak</p>
             <p className="text-2xl font-bold text-amber-400 mt-1">
               {totalRetak.toLocaleString('id-ID')} <span className="text-xs text-slate-400 font-normal">butir</span>
             </p>
@@ -323,7 +392,7 @@ export function ProduksiTelurPage() {
 
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-400">Telur Rusak / Pecah</p>
+            <p className="text-xs font-medium text-slate-400">Pecah / Rusak</p>
             <p className="text-2xl font-bold text-rose-400 mt-1">
               {totalPecah.toLocaleString('id-ID')} <span className="text-xs text-slate-400 font-normal">butir</span>
             </p>
@@ -335,7 +404,7 @@ export function ProduksiTelurPage() {
 
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-400">Total Seluruh Butir</p>
+            <p className="text-xs font-medium text-slate-400">Total Akumulasi</p>
             <p className="text-2xl font-bold text-white mt-1">
               {totalSemuaButir.toLocaleString('id-ID')} <span className="text-xs text-slate-400 font-normal">butir</span>
             </p>
@@ -361,51 +430,110 @@ export function ProduksiTelurPage() {
         </div>
       )}
 
-      {/* Controls & Filter */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <label className="text-xs text-slate-400 font-medium">Filter Kandang:</label>
-          <select
-            value={filterKandang}
-            onChange={(e) => setFilterKandang(e.target.value)}
-            className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-medium text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
-          >
-            <option value="semua">Semua Kandang Aktif</option>
-            {kandangList.map((k) => (
-              <option key={k.id} value={k.id}>
-                {k.nama_kandang}
-              </option>
+      {/* Filter Bar Interaktif */}
+      <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3.5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Kandang Selector */}
+          <div className="flex items-center gap-2.5">
+            <Filter className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Kandang:</span>
+            <select
+              value={filterKandang}
+              onChange={(e) => setFilterKandang(e.target.value)}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-medium text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            >
+              <option value="semua">Semua Kandang Aktif</option>
+              {kandangList.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.nama_kandang}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Quick Date Presets */}
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider mr-1">Rentang:</span>
+            {[
+              { id: 'semua', label: 'Semua Waktu' },
+              { id: 'today', label: 'Hari Ini' },
+              { id: '7days', label: '7 Hari Terakhir' },
+              { id: '30days', label: '30 Hari Terakhir' },
+              { id: 'this_month', label: 'Bulan Ini' },
+              { id: 'custom', label: 'Custom Range' },
+            ].map((p) => (
+              <button
+                key={p.id}
+                onClick={() => handlePresetChange(p.id)}
+                className={`px-3 py-1.5 rounded-lg font-medium transition ${datePreset === p.id
+                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 font-semibold shadow-sm'
+                  : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 border border-slate-700/60'
+                  }`}
+              >
+                {p.label}
+              </button>
             ))}
-          </select>
+
+            <button
+              onClick={loadRiwayat}
+              title="Refresh Data"
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-white transition ml-1"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
 
-        <button
-          onClick={loadData}
-          title="Refresh Data"
-          className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition self-end sm:self-auto"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
+        {/* Custom Range Inputs (Shown when 'custom' is active) */}
+        {datePreset === 'custom' && (
+          <div className="pt-3 border-t border-slate-800/80 flex flex-wrap items-center gap-3 text-xs animate-fade-in">
+            <span className="text-slate-400 font-medium">Dari Tanggal:</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+            <span className="text-slate-400 font-medium">Sampai:</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+            {(startDate || endDate) && (
+              <button
+                onClick={() => {
+                  setStartDate('')
+                  setEndDate('')
+                }}
+                className="text-[11px] text-slate-400 hover:text-rose-400 underline transition"
+              >
+                Reset Tanggal
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Production Records Table */}
       {loading ? (
         <div className="py-16 flex flex-col items-center justify-center gap-3 text-slate-400">
           <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
-          <p className="text-sm font-medium">Memuat data produksi telur...</p>
+          <p className="text-sm font-medium">Memuat riwayat data produksi...</p>
         </div>
-      ) : filteredList.length === 0 ? (
+      ) : produksiList.length === 0 ? (
         <div className="py-16 text-center border border-dashed border-slate-800 rounded-2xl bg-slate-900/30">
           <Egg className="w-12 h-12 mx-auto text-slate-600 mb-3" />
-          <h3 className="text-base font-semibold text-slate-300">Belum Ada Data Produksi Telur</h3>
+          <h3 className="text-base font-semibold text-slate-300">Tidak Ada Data Produksi Telur</h3>
           <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-            {filterKandang !== 'semua'
-              ? 'Belum ada catatan panen telur untuk kandang terpilih.'
-              : 'Klik tombol "+ Catat Produksi Telur" untuk mulai mencatat hasil panen harian.'}
+            {filterKandang !== 'semua' || startDate || endDate
+              ? 'Tidak ditemukan catatan panen telur dengan kriteria filter saat ini.'
+              : 'Klik tombol "Catat Produksi Telur" untuk mulai mencatat hasil panen harian.'}
           </p>
         </div>
       ) : (
-        <div className="border border-slate-800 rounded-2xl bg-slate-900/80 overflow-hidden">
+        <div className="border border-slate-800 rounded-2xl bg-slate-900/80 overflow-hidden shadow-xl">
           <table className="w-full text-left text-xs text-slate-300">
             <thead className="bg-slate-800/80 text-slate-400 uppercase tracking-wider text-[10px] font-semibold border-b border-slate-700">
               <tr>
@@ -420,11 +548,13 @@ export function ProduksiTelurPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/80">
-              {filteredList.map((item) => {
+              {produksiList.map((item) => {
                 const kandangName =
+                  item.nama_kandang ||
                   kandangList.find((k) => k.id === item.kandang_id)?.nama_kandang ||
                   `Kandang #${item.kandang_id}`
                 const totalItem =
+                  item.total_butir ||
                   item.jumlah_butir_normal + item.jumlah_butir_retak + item.jumlah_butir_pecah
 
                 return (
@@ -442,11 +572,23 @@ export function ProduksiTelurPage() {
                     <td className="px-4 py-3.5 text-right font-semibold text-emerald-400">
                       {item.jumlah_butir_normal.toLocaleString('id-ID')}
                     </td>
-                    <td className="px-4 py-3.5 text-right text-amber-300">
-                      {item.jumlah_butir_retak.toLocaleString('id-ID')}
+                    <td className="px-4 py-3.5 text-right">
+                      {item.jumlah_butir_retak > 0 ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[11px] font-semibold">
+                          {item.jumlah_butir_retak.toLocaleString('id-ID')}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500">0</span>
+                      )}
                     </td>
-                    <td className="px-4 py-3.5 text-right text-rose-400">
-                      {item.jumlah_butir_pecah.toLocaleString('id-ID')}
+                    <td className="px-4 py-3.5 text-right">
+                      {item.jumlah_butir_pecah > 0 ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 text-[11px] font-semibold">
+                          {item.jumlah_butir_pecah.toLocaleString('id-ID')}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500">0</span>
+                      )}
                     </td>
                     <td className="px-4 py-3.5 text-right font-bold text-white">
                       {totalItem.toLocaleString('id-ID')}
@@ -477,6 +619,14 @@ export function ProduksiTelurPage() {
               })}
             </tbody>
           </table>
+
+          {/* Footer Info */}
+          <div className="px-4 py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+            <span>
+              Menampilkan <strong className="text-white">{produksiList.length}</strong> catatan produksi
+            </span>
+            <span className="text-[11px]">Server-side Query Filtered & Eager Loaded</span>
+          </div>
         </div>
       )}
 
@@ -741,7 +891,7 @@ export function ProduksiTelurPage() {
                       onChange={(e) =>
                         setEditForm({ ...editForm, jumlah_butir_pecah: e.target.value })
                       }
-                      className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
                     />
                   </div>
                 </div>

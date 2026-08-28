@@ -13,7 +13,7 @@ from app.schemas.produksi_telur import ProduksiTelurCreate, ProduksiTelurUpdate
 
 class ProduksiTelurService:
     """
-    Business Logic Layer untuk pengelolaan pencatatan produksi telur harian.
+    Business Logic Layer untuk pengelolaan pencatatan dan riwayat produksi telur harian.
     Menerapkan validasi multi-level pencegahan duplikasi data (Service check & DB Integrity Constraint).
     """
 
@@ -188,24 +188,75 @@ class ProduksiTelurService:
             )
 
     @staticmethod
+    def get_riwayat_produksi(
+        db: Session,
+        kandang_id: Optional[int] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        limit: int = 50,
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """
+        Mengambil riwayat data produksi telur dengan filter dinamis kandang dan rentang tanggal.
+        Memvalidasi konsistensi tanggal (start_date <= end_date) dan menyertakan nama_kandang hasil eager load.
+        """
+        # 1. Validasi konsistensi rentang tanggal
+        if start_date is not None and end_date is not None:
+            if start_date > end_date:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        f"Rentang tanggal tidak valid: tanggal awal ({start_date}) "
+                        f"tidak boleh lebih besar dari tanggal akhir ({end_date})."
+                    )
+                )
+
+        # 2. Validasi kandang jika kandang_id diberikan
+        if kandang_id is not None:
+            kandang = KandangRepository.get_by_id(db, kandang_id)
+            if not kandang:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Kandang dengan ID {kandang_id} tidak ditemukan."
+                )
+
+        # 3. Query repository dengan joinedload
+        records = ProduksiTelurRepository.get_history(
+            db,
+            kandang_id=kandang_id,
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit,
+            offset=offset
+        )
+
+        # 4. Map ke list detail dengan nama_kandang
+        results = []
+        for r in records:
+            results.append({
+                "id": r.id,
+                "kandang_id": r.kandang_id,
+                "tanggal": r.tanggal,
+                "jumlah_butir_normal": r.jumlah_butir_normal,
+                "jumlah_butir_retak": r.jumlah_butir_retak,
+                "jumlah_butir_pecah": r.jumlah_butir_pecah,
+                "catatan": r.catatan,
+                "nama_kandang": r.kandang.nama_kandang if r.kandang else None,
+            })
+        return results
+
+    @staticmethod
     def get_produksi_by_kandang(
         db: Session,
         kandang_id: int,
         limit: int = 100,
         offset: int = 0
-    ) -> List[ProduksiTelur]:
+    ) -> List[Dict[str, Any]]:
         """
         Mengambil riwayat produksi telur khusus untuk kandang tertentu.
         """
-        kandang = KandangRepository.get_by_id(db, kandang_id)
-        if not kandang:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Kandang dengan ID {kandang_id} tidak ditemukan."
-            )
-
-        return ProduksiTelurRepository.get_by_kandang(
-            db, kandang_id, limit=limit, offset=offset
+        return ProduksiTelurService.get_riwayat_produksi(
+            db, kandang_id=kandang_id, limit=limit, offset=offset
         )
 
     @staticmethod
@@ -215,14 +266,10 @@ class ProduksiTelurService:
         end_date: Optional[date] = None,
         limit: int = 100,
         offset: int = 0
-    ) -> List[ProduksiTelur]:
+    ) -> List[Dict[str, Any]]:
         """
         Mengambil seluruh data produksi telur lintas kandang dengan filter rentang tanggal.
         """
-        return ProduksiTelurRepository.get_all(
-            db,
-            start_date=start_date,
-            end_date=end_date,
-            limit=limit,
-            offset=offset
+        return ProduksiTelurService.get_riwayat_produksi(
+            db, start_date=start_date, end_date=end_date, limit=limit, offset=offset
         )

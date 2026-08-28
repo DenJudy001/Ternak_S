@@ -1,6 +1,6 @@
 from datetime import date
 from typing import Optional
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 class ProduksiTelurBase(BaseModel):
@@ -70,3 +70,18 @@ class ProduksiTelurResponse(ProduksiTelurBase):
     kandang_id: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ProduksiTelurDetailResponse(ProduksiTelurResponse):
+    nama_kandang: Optional[str] = Field(
+        None,
+        description="Nama kandang hasil join relasi tabel kandang"
+    )
+
+    @computed_field
+    @property
+    def total_butir(self) -> int:
+        """
+        Total akumulasi seluruh butir telur (normal + retak + pecah).
+        """
+        return self.jumlah_butir_normal + self.jumlah_butir_retak + self.jumlah_butir_pecah

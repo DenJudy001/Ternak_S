@@ -1,6 +1,6 @@
 from datetime import date
 from typing import List, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.models.produksi_telur import ProduksiTelur
 
 
@@ -22,9 +22,14 @@ class ProduksiTelurRepository:
     @staticmethod
     def get_by_id(db: Session, produksi_id: int) -> Optional[ProduksiTelur]:
         """
-        Mengambil 1 entitas produksi telur berdasarkan ID.
+        Mengambil 1 entitas produksi telur berdasarkan ID dengan eager loading kandang.
         """
-        return db.query(ProduksiTelur).filter(ProduksiTelur.id == produksi_id).first()
+        return (
+            db.query(ProduksiTelur)
+            .options(joinedload(ProduksiTelur.kandang))
+            .filter(ProduksiTelur.id == produksi_id)
+            .first()
+        )
 
     @staticmethod
     def get_by_kandang_and_date(
@@ -67,6 +72,35 @@ class ProduksiTelurRepository:
         db.delete(db_produksi)
 
     @staticmethod
+    def get_history(
+        db: Session,
+        kandang_id: Optional[int] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[ProduksiTelur]:
+        """
+        Mengambil riwayat produksi telur dengan filter dinamis kandang dan rentang tanggal.
+        Menggunakan joinedload(ProduksiTelur.kandang) untuk eager loading guna mencegah N+1 query problem.
+        """
+        query = db.query(ProduksiTelur).options(joinedload(ProduksiTelur.kandang))
+
+        if kandang_id is not None:
+            query = query.filter(ProduksiTelur.kandang_id == kandang_id)
+        if start_date is not None:
+            query = query.filter(ProduksiTelur.tanggal >= start_date)
+        if end_date is not None:
+            query = query.filter(ProduksiTelur.tanggal <= end_date)
+
+        return (
+            query.order_by(ProduksiTelur.tanggal.desc(), ProduksiTelur.id.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
+    @staticmethod
     def get_by_kandang(
         db: Session,
         kandang_id: int,
@@ -77,13 +111,8 @@ class ProduksiTelurRepository:
         Mengambil riwayat produksi telur untuk satu kandang spesifik.
         Diurutkan berdasarkan tanggal secara descending (terbaru ke terlama).
         """
-        return (
-            db.query(ProduksiTelur)
-            .filter(ProduksiTelur.kandang_id == kandang_id)
-            .order_by(ProduksiTelur.tanggal.desc(), ProduksiTelur.id.desc())
-            .offset(offset)
-            .limit(limit)
-            .all()
+        return ProduksiTelurRepository.get_history(
+            db, kandang_id=kandang_id, limit=limit, offset=offset
         )
 
     @staticmethod
@@ -97,14 +126,6 @@ class ProduksiTelurRepository:
         """
         Mengambil seluruh catatan produksi telur lintas kandang dengan filter rentang tanggal.
         """
-        query = db.query(ProduksiTelur)
-        if start_date is not None:
-            query = query.filter(ProduksiTelur.tanggal >= start_date)
-        if end_date is not None:
-            query = query.filter(ProduksiTelur.tanggal <= end_date)
-        return (
-            query.order_by(ProduksiTelur.tanggal.desc(), ProduksiTelur.id.desc())
-            .offset(offset)
-            .limit(limit)
-            .all()
+        return ProduksiTelurRepository.get_history(
+            db, start_date=start_date, end_date=end_date, limit=limit, offset=offset
         )

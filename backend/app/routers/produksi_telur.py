@@ -11,6 +11,7 @@ from app.schemas.produksi_telur import (
     ProduksiTelurCreate,
     ProduksiTelurUpdate,
     ProduksiTelurResponse,
+    ProduksiTelurDetailResponse,
 )
 from app.services.produksi_telur_service import ProduksiTelurService
 
@@ -43,8 +44,42 @@ def create_produksi(
 
 
 @router.get(
+    "/",
+    response_model=List[ProduksiTelurDetailResponse],
+    summary="Daftar & Riwayat Produksi Telur (Filtering & Eager Load)",
+    responses={
+        200: {"description": "Daftar riwayat produksi telur berhasil diambil."},
+        400: {"description": "Rentang tanggal tidak valid (start_date > end_date)."},
+        401: {"description": "Belum terautentikasi."},
+        404: {"description": "Kandang tidak ditemukan."},
+    },
+)
+def list_riwayat_produksi(
+    kandang_id: Optional[int] = Query(None, description="Filter berdasarkan ID kandang"),
+    start_date: Optional[date] = Query(None, description="Filter tanggal awal (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="Filter tanggal akhir (YYYY-MM-DD)"),
+    limit: int = Query(50, ge=1, le=100, description="Maksimum jumlah data yang diambil"),
+    offset: int = Query(0, ge=0, description="Offset pagination"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Mengambil riwayat data produksi telur dengan filter kandang dan rentang tanggal.
+    Eager loading nama kandang diterapkan di level query database untuk mencegah N+1 query problem.
+    """
+    return ProduksiTelurService.get_riwayat_produksi(
+        db,
+        kandang_id=kandang_id,
+        start_date=start_date,
+        end_date=end_date,
+        limit=limit,
+        offset=offset
+    )
+
+
+@router.get(
     "/kandang/{kandang_id}",
-    response_model=List[ProduksiTelurResponse],
+    response_model=List[ProduksiTelurDetailResponse],
     summary="Riwayat Produksi Telur per Kandang",
     responses={
         200: {"description": "Riwayat produksi telur kandang berhasil diambil."},
@@ -60,7 +95,7 @@ def get_produksi_kandang(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Mengambil riwayat data produksi telur untuk satu kandang spesifik.
+    Mengambil riwayat data produksi telur khusus untuk satu kandang spesifik.
     """
     return ProduksiTelurService.get_produksi_by_kandang(
         db, kandang_id, limit=limit, offset=offset
@@ -69,7 +104,7 @@ def get_produksi_kandang(
 
 @router.get(
     "/{produksi_id}",
-    response_model=ProduksiTelurResponse,
+    response_model=ProduksiTelurDetailResponse,
     summary="Detail Produksi Telur",
     responses={
         200: {"description": "Detail data produksi telur berhasil diambil."},
@@ -85,36 +120,17 @@ def get_produksi_detail(
     """
     Mengambil 1 detail data produksi telur berdasarkan ID.
     """
-    return ProduksiTelurService.get_produksi_by_id(db, produksi_id)
-
-
-@router.get(
-    "/",
-    response_model=List[ProduksiTelurResponse],
-    summary="Seluruh Riwayat Produksi Telur",
-    responses={
-        200: {"description": "Daftar riwayat produksi telur berhasil diambil."},
-        401: {"description": "Belum terautentikasi."},
-    },
-)
-def list_all_produksi(
-    start_date: Optional[date] = Query(None, description="Filter tanggal awal (YYYY-MM-DD)"),
-    end_date: Optional[date] = Query(None, description="Filter tanggal akhir (YYYY-MM-DD)"),
-    limit: int = Query(100, ge=1, le=1000, description="Maksimum data"),
-    offset: int = Query(0, ge=0, description="Offset pagination"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Mengambil seluruh catatan data produksi telur lintas kandang dengan filter rentang tanggal.
-    """
-    return ProduksiTelurService.get_all_produksi(
-        db,
-        start_date=start_date,
-        end_date=end_date,
-        limit=limit,
-        offset=offset
-    )
+    r = ProduksiTelurService.get_produksi_by_id(db, produksi_id)
+    return {
+        "id": r.id,
+        "kandang_id": r.kandang_id,
+        "tanggal": r.tanggal,
+        "jumlah_butir_normal": r.jumlah_butir_normal,
+        "jumlah_butir_retak": r.jumlah_butir_retak,
+        "jumlah_butir_pecah": r.jumlah_butir_pecah,
+        "catatan": r.catatan,
+        "nama_kandang": r.kandang.nama_kandang if r.kandang else None,
+    }
 
 
 @router.patch(

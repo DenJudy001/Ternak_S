@@ -32,7 +32,6 @@ class Kandang(Base):
     produksi_records = relationship(
         "ProduksiTelur",
         back_populates="kandang",
-        cascade="all, delete-orphan",
         passive_deletes=True
     )
 
