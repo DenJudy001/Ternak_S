@@ -18,6 +18,12 @@ from app.schemas.mortalitas import (
     MortalitasUpdate,
     MortalitasResponse,
 )
+from app.schemas.produksi_telur import (
+    ProduksiTelurBase,
+    ProduksiTelurCreate,
+    ProduksiTelurUpdate,
+    ProduksiTelurResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -34,4 +40,8 @@ __all__ = [
     "MortalitasCreate",
     "MortalitasUpdate",
     "MortalitasResponse",
+    "ProduksiTelurBase",
+    "ProduksiTelurCreate",
+    "ProduksiTelurUpdate",
+    "ProduksiTelurResponse",
 ]

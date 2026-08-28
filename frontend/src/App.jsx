@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { KandangPage } from './pages/KandangPage'
+import { ProduksiTelurPage } from './pages/ProduksiTelurPage'
 import { checkServerHealth } from './services/api'
 import {
   LayoutDashboard,
@@ -72,16 +73,29 @@ function DashboardOverview({ onNavigate }) {
             </p>
           </div>
 
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 opacity-80">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-3">
-              <Egg className="w-5 h-5" />
+          {/* Produksi Telur Module - Active & Interactive */}
+          <div
+            onClick={() => onNavigate('produksi-telur')}
+            className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 transition cursor-pointer group relative overflow-hidden shadow-lg hover:shadow-amber-500/5"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-105 transition">
+                <Egg className="w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                T2.1 Ready
+              </span>
             </div>
-            <h4 className="font-semibold text-white text-base mb-1">Produksi Telur</h4>
+            <h4 className="font-bold text-white text-base mb-1 group-hover:text-amber-400 transition flex items-center justify-between">
+              <span>Produksi Telur</span>
+              <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 group-hover:translate-x-1 transition" />
+            </h4>
             <p className="text-xs text-slate-400 leading-relaxed">
               Pencatatan butir telur harian (kategori normal, retak, pecah) per kandang.
             </p>
           </div>
 
+          {/* Mortalitas Ayam - Active & Interactive */}
           <div
             onClick={() => onNavigate('kandang')}
             className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-rose-500/50 transition cursor-pointer group relative overflow-hidden shadow-lg hover:shadow-rose-500/5"
@@ -91,7 +105,7 @@ function DashboardOverview({ onNavigate }) {
                 <TrendingDown className="w-5 h-5" />
               </div>
               <span className="text-[10px] font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded-full">
-                T1.2 Ready
+                T1.2 & T1.3 Ready
               </span>
             </div>
             <h4 className="font-bold text-white text-base mb-1 group-hover:text-rose-400 transition flex items-center justify-between">
@@ -140,7 +154,7 @@ function DashboardOverview({ onNavigate }) {
 
 function MainLayout() {
   const { user, logout } = useAuth()
-  const [activeTab, setActiveTab] = useState('dashboard') // 'dashboard' | 'kandang'
+  const [activeTab, setActiveTab] = useState('dashboard') // 'dashboard' | 'kandang' | 'produksi-telur'
   const [serverStatus, setServerStatus] = useState('checking')
 
   useEffect(() => {
@@ -203,6 +217,18 @@ function MainLayout() {
                 <Home className="w-3.5 h-3.5" />
                 <span>Kandang</span>
               </button>
+
+              <button
+                onClick={() => setActiveTab('produksi-telur')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium ${
+                  activeTab === 'produksi-telur'
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Egg className="w-3.5 h-3.5" />
+                <span>Produksi Telur</span>
+              </button>
             </nav>
           </div>
 
@@ -251,6 +277,7 @@ function MainLayout() {
       <main className="max-w-6xl mx-auto px-4 py-8 flex-1 w-full">
         {activeTab === 'dashboard' && <DashboardOverview onNavigate={setActiveTab} />}
         {activeTab === 'kandang' && <KandangPage />}
+        {activeTab === 'produksi-telur' && <ProduksiTelurPage />}
       </main>
 
       {/* Footer */}
