@@ -23,6 +23,7 @@ from app.schemas.produksi_telur import (
     ProduksiTelurCreate,
     ProduksiTelurUpdate,
     ProduksiTelurResponse,
+    ProduksiTelurDetailResponse,
 )
 
 __all__ = [
@@ -44,4 +45,5 @@ __all__ = [
     "ProduksiTelurCreate",
     "ProduksiTelurUpdate",
     "ProduksiTelurResponse",
+    "ProduksiTelurDetailResponse",
 ]

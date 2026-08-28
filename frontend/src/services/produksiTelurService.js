@@ -81,30 +81,14 @@ export async function deleteProduksiTelur(produksiId) {
 }
 
 /**
- * Mengambil riwayat produksi telur untuk satu kandang spesifik.
+ * Mengambil riwayat produksi telur dengan filter kandang dan rentang tanggal.
+ * params: { kandangId?, startDate?, endDate?, limit?, offset? }
  */
-export async function getProduksiTelurByKandang(kandangId, limit = 100, offset = 0) {
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/produksi-telur/kandang/${kandangId}?limit=${limit}&offset=${offset}`,
-    {
-      method: 'GET',
-      headers: getAuthHeaders(),
-    }
-  )
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.detail || 'Gagal memuat riwayat produksi telur kandang.')
-  }
-
-  return response.json()
-}
-
-/**
- * Mengambil seluruh data produksi telur lintas kandang.
- */
-export async function getAllProduksiTelur(params = {}) {
+export async function getRiwayatProduksi(params = {}) {
   const searchParams = new URLSearchParams()
+  if (params.kandangId && params.kandangId !== 'semua') {
+    searchParams.append('kandang_id', params.kandangId)
+  }
   if (params.startDate) searchParams.append('start_date', params.startDate)
   if (params.endDate) searchParams.append('end_date', params.endDate)
   if (params.limit) searchParams.append('limit', params.limit)
@@ -124,4 +108,18 @@ export async function getAllProduksiTelur(params = {}) {
   }
 
   return response.json()
+}
+
+/**
+ * Mengambil riwayat produksi telur untuk satu kandang spesifik.
+ */
+export async function getProduksiTelurByKandang(kandangId, limit = 100, offset = 0) {
+  return getRiwayatProduksi({ kandangId, limit, offset })
+}
+
+/**
+ * Mengambil seluruh data produksi telur lintas kandang.
+ */
+export async function getAllProduksiTelur(params = {}) {
+  return getRiwayatProduksi(params)
 }
