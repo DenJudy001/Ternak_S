@@ -111,6 +111,36 @@ export async function getRiwayatProduksi(params = {}) {
 }
 
 /**
+ * Mengambil analitik performa produksi telur (deret waktu time-series & summary agregasi) (T2.3).
+ * params: { kandangId?, startDate?, endDate? }
+ */
+export async function getProduksiPerformanceAnalytics(params = {}) {
+  const searchParams = new URLSearchParams()
+  if (params.kandangId && params.kandangId !== 'semua') {
+    searchParams.append('kandang_id', params.kandangId)
+  }
+  if (params.startDate) searchParams.append('start_date', params.startDate)
+  if (params.endDate) searchParams.append('end_date', params.endDate)
+
+  const queryString = searchParams.toString()
+  const url = `${API_BASE_URL}/api/v1/produksi-telur/analytics/performance${
+    queryString ? `?${queryString}` : ''
+  }`
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || 'Gagal memuat analitik performa produksi telur.')
+  }
+
+  return response.json()
+}
+
+/**
  * Mengambil riwayat produksi telur untuk satu kandang spesifik.
  */
 export async function getProduksiTelurByKandang(kandangId, limit = 100, offset = 0) {

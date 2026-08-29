@@ -83,6 +83,7 @@ class ProduksiTelurRepository:
         """
         Mengambil riwayat produksi telur dengan filter dinamis kandang dan rentang tanggal.
         Menggunakan joinedload(ProduksiTelur.kandang) untuk eager loading guna mencegah N+1 query problem.
+        Diurutkan secara descending (terbaru ke terlama).
         """
         query = db.query(ProduksiTelur).options(joinedload(ProduksiTelur.kandang))
 
@@ -97,6 +98,31 @@ class ProduksiTelurRepository:
             query.order_by(ProduksiTelur.tanggal.desc(), ProduksiTelur.id.desc())
             .offset(offset)
             .limit(limit)
+            .all()
+        )
+
+    @staticmethod
+    def get_performance_data(
+        db: Session,
+        kandang_id: Optional[int] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> List[ProduksiTelur]:
+        """
+        Mengambil deret waktu data produksi telur untuk visualisasi grafik performa dan analitik agregasi.
+        Diurutkan secara kronologis menaik (ASC) dari tanggal terlama ke terbaru.
+        """
+        query = db.query(ProduksiTelur).options(joinedload(ProduksiTelur.kandang))
+
+        if kandang_id is not None:
+            query = query.filter(ProduksiTelur.kandang_id == kandang_id)
+        if start_date is not None:
+            query = query.filter(ProduksiTelur.tanggal >= start_date)
+        if end_date is not None:
+            query = query.filter(ProduksiTelur.tanggal <= end_date)
+
+        return (
+            query.order_by(ProduksiTelur.tanggal.asc(), ProduksiTelur.id.asc())
             .all()
         )
 

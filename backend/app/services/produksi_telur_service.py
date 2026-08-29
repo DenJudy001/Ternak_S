@@ -13,9 +13,20 @@ from app.schemas.produksi_telur import ProduksiTelurCreate, ProduksiTelurUpdate
 
 class ProduksiTelurService:
     """
-    Business Logic Layer untuk pengelolaan pencatatan dan riwayat produksi telur harian.
+    Business Logic Layer untuk pengelolaan pencatatan, riwayat, dan analitik performa produksi telur harian.
     Menerapkan validasi multi-level pencegahan duplikasi data (Service check & DB Integrity Constraint).
     """
+
+    @staticmethod
+    def calculate_hdp(jumlah_normal: int, populasi: int) -> float:
+        """
+        Kalkulasi Hen Day Production (HDP%):
+        HDP = (jumlah_butir_normal / populasi) * 100
+        Menangani ZeroDivisionError jika populasi <= 0 dan membulatkan ke 2 desimal.
+        """
+        if populasi is None or populasi <= 0 or jumlah_normal is None or jumlah_normal <= 0:
+            return 0.0
+        return round((jumlah_normal / populasi) * 100, 2)
 
     @staticmethod
     def create_produksi(db: Session, data: ProduksiTelurCreate) -> ProduksiTelur:
@@ -87,9 +98,9 @@ class ProduksiTelurService:
             )
 
     @staticmethod
-    def get_produksi_by_id(db: Session, produksi_id: int) -> ProduksiTelur:
+    def get_produksi_by_id(db: Session, produksi_id: int) -> Dict[str, Any]:
         """
-        Mengambil 1 entitas data produksi telur berdasarkan ID.
+        Mengambil 1 entitas data produksi telur berdasarkan ID dengan kalkulasi HDP.
         """
         produksi = ProduksiTelurRepository.get_by_id(db, produksi_id)
         if not produksi:
@@ -97,7 +108,22 @@ class ProduksiTelurService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Data produksi telur dengan ID {produksi_id} tidak ditemukan."
             )
-        return produksi
+        
+        populasi = produksi.kandang.jumlah_saat_ini if produksi.kandang else 0
+        hdp = ProduksiTelurService.calculate_hdp(produksi.jumlah_butir_normal, populasi)
+
+        return {
+            "id": produksi.id,
+            "kandang_id": produksi.kandang_id,
+            "tanggal": produksi.tanggal,
+            "jumlah_butir_normal": produksi.jumlah_butir_normal,
+            "jumlah_butir_retak": produksi.jumlah_butir_retak,
+            "jumlah_butir_pecah": produksi.jumlah_butir_pecah,
+            "catatan": produksi.catatan,
+            "nama_kandang": produksi.kandang.nama_kandang if produksi.kandang else None,
+            "populasi_ayam": populasi,
+            "hdp_percentage": hdp,
+        }
 
     @staticmethod
     def update_produksi(
@@ -198,10 +224,15 @@ class ProduksiTelurService:
     ) -> List[Dict[str, Any]]:
         """
         Mengambil riwayat data produksi telur dengan filter dinamis kandang dan rentang tanggal.
-        Memvalidasi konsistensi tanggal (start_date <= end_date) dan menyertakan nama_kandang hasil eager load.
+        Memvalidasi konsistensi tanggal (start_date <= end_date) dan menyertakan nama_kandang & HDP% hasil kalkulasi on-the-fly.
         """
         # 1. Validasi konsistensi rentang tanggal
-        if start_date is not None and end_date is not None:
+        if (
+            start_date is not None
+            and end_date is not None
+            and isinstance(start_date, date)
+            and isinstance(end_date, date)
+        ):
             if start_date > end_date:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -212,7 +243,7 @@ class ProduksiTelurService:
                 )
 
         # 2. Validasi kandang jika kandang_id diberikan
-        if kandang_id is not None:
+        if kandang_id is not None and isinstance(kandang_id, int):
             kandang = KandangRepository.get_by_id(db, kandang_id)
             if not kandang:
                 raise HTTPException(
@@ -223,16 +254,19 @@ class ProduksiTelurService:
         # 3. Query repository dengan joinedload
         records = ProduksiTelurRepository.get_history(
             db,
-            kandang_id=kandang_id,
-            start_date=start_date,
-            end_date=end_date,
-            limit=limit,
-            offset=offset
+            kandang_id=kandang_id if isinstance(kandang_id, int) else None,
+            start_date=start_date if isinstance(start_date, date) else None,
+            end_date=end_date if isinstance(end_date, date) else None,
+            limit=limit if isinstance(limit, int) else 50,
+            offset=offset if isinstance(offset, int) else 0
         )
 
-        # 4. Map ke list detail dengan nama_kandang
+        # 4. Map ke list detail dengan nama_kandang & kalkulasi HDP%
         results = []
         for r in records:
+            populasi = r.kandang.jumlah_saat_ini if r.kandang else 0
+            hdp = ProduksiTelurService.calculate_hdp(r.jumlah_butir_normal, populasi)
+
             results.append({
                 "id": r.id,
                 "kandang_id": r.kandang_id,
@@ -242,8 +276,105 @@ class ProduksiTelurService:
                 "jumlah_butir_pecah": r.jumlah_butir_pecah,
                 "catatan": r.catatan,
                 "nama_kandang": r.kandang.nama_kandang if r.kandang else None,
+                "populasi_ayam": populasi,
+                "hdp_percentage": hdp,
             })
         return results
+
+    @staticmethod
+    def get_performance_analytics(
+        db: Session,
+        kandang_id: Optional[int] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None
+    ) -> Dict[str, Any]:
+        """
+        Mengambil deret waktu performa harian dan ringkasan agregasi metrik periode terpilih (T2.3).
+        Data points diurutkan menaik (ASC) untuk kebutuhan visualisasi grafik.
+        """
+        # 1. Validasi rentang tanggal
+        if (
+            start_date is not None
+            and end_date is not None
+            and isinstance(start_date, date)
+            and isinstance(end_date, date)
+        ):
+            if start_date > end_date:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        f"Rentang tanggal tidak valid: tanggal awal ({start_date}) "
+                        f"tidak boleh lebih besar dari tanggal akhir ({end_date})."
+                    )
+                )
+
+        # 2. Validasi kandang jika diberikan
+        if kandang_id is not None and isinstance(kandang_id, int):
+            kandang = KandangRepository.get_by_id(db, kandang_id)
+            if not kandang:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Kandang dengan ID {kandang_id} tidak ditemukan."
+                )
+
+        # 3. Query records terurut ASC
+        records = ProduksiTelurRepository.get_performance_data(
+            db,
+            kandang_id=kandang_id if isinstance(kandang_id, int) else None,
+            start_date=start_date if isinstance(start_date, date) else None,
+            end_date=end_date if isinstance(end_date, date) else None
+        )
+
+        # 4. Transformasi titik data (Data Points)
+        data_points = []
+        for r in records:
+            populasi = r.kandang.jumlah_saat_ini if r.kandang else 0
+            hdp = ProduksiTelurService.calculate_hdp(r.jumlah_butir_normal, populasi)
+            total_butir = r.jumlah_butir_normal + r.jumlah_butir_retak + r.jumlah_butir_pecah
+
+            data_points.append({
+                "tanggal": r.tanggal,
+                "kandang_id": r.kandang_id,
+                "nama_kandang": r.kandang.nama_kandang if r.kandang else f"Kandang #{r.kandang_id}",
+                "jumlah_butir_normal": r.jumlah_butir_normal,
+                "jumlah_butir_retak": r.jumlah_butir_retak,
+                "jumlah_butir_pecah": r.jumlah_butir_pecah,
+                "total_butir": total_butir,
+                "populasi_ayam": populasi,
+                "hdp_percentage": hdp,
+            })
+
+        # 5. Kalkulasi Ringkasan Agregasi (Performance Summary)
+        total_normal = sum(dp["jumlah_butir_normal"] for dp in data_points)
+        total_retak = sum(dp["jumlah_butir_retak"] for dp in data_points)
+        total_pecah = sum(dp["jumlah_butir_pecah"] for dp in data_points)
+        total_seluruh = total_normal + total_retak + total_pecah
+
+        rata_rata_hdp = (
+            round(sum(dp["hdp_percentage"] for dp in data_points) / len(data_points), 2)
+            if data_points
+            else 0.0
+        )
+
+        persentase_abnormal = (
+            round(((total_retak + total_pecah) / total_seluruh) * 100, 2)
+            if total_seluruh > 0
+            else 0.0
+        )
+
+        summary = {
+            "rata_rata_hdp": rata_rata_hdp,
+            "total_butir_normal": total_normal,
+            "total_butir_retak": total_retak,
+            "total_butir_pecah": total_pecah,
+            "total_seluruh_butir": total_seluruh,
+            "persentase_telur_abnormal": persentase_abnormal,
+        }
+
+        return {
+            "data_points": data_points,
+            "summary": summary,
+        }
 
     @staticmethod
     def get_produksi_by_kandang(

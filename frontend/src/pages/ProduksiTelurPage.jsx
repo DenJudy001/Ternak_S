@@ -5,7 +5,9 @@ import {
   updateProduksiTelur,
   deleteProduksiTelur,
   getRiwayatProduksi,
+  getProduksiPerformanceAnalytics,
 } from '../services/produksiTelurService'
+import { ProduksiChart } from '../components/produksi/ProduksiChart'
 import {
   Egg,
   Plus,
@@ -23,10 +25,12 @@ import {
   RotateCcw,
   Filter,
   SlidersHorizontal,
+  TrendingUp,
 } from 'lucide-react'
 
 export function ProduksiTelurPage() {
   const [produksiList, setProduksiList] = useState([])
+  const [analyticsData, setAnalyticsData] = useState(null)
   const [kandangList, setKandangList] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -34,7 +38,7 @@ export function ProduksiTelurPage() {
 
   // Filter States
   const [filterKandang, setFilterKandang] = useState('semua')
-  const [datePreset, setDatePreset] = useState('semua') // 'semua' | 'today' | '7days' | '30days' | 'this_month' | 'custom'
+  const [datePreset, setDatePreset] = useState('7days') // default 7 hari terakhir agar langsung ada chart time-series menarik
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
 
@@ -54,7 +58,6 @@ export function ProduksiTelurPage() {
     const day = String(d.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
   }
-
 
   // Form Create State
   const [createForm, setCreateForm] = useState({
@@ -112,6 +115,13 @@ export function ProduksiTelurPage() {
     }
   }
 
+  // Initialize default 7 days preset on initial load
+  useEffect(() => {
+    const { start, end } = calculatePresetDates('7days')
+    setStartDate(start)
+    setEndDate(end)
+  }, [])
+
   // Load Kandang List once on mount
   useEffect(() => {
     getKandangList('aktif')
@@ -119,8 +129,8 @@ export function ProduksiTelurPage() {
       .catch((err) => console.error('Failed to load kandang:', err))
   }, [])
 
-  // Load Riwayat Produksi with active server-side filters
-  const loadRiwayat = async () => {
+  // Load Riwayat Produksi & Analytics with active server-side filters
+  const loadData = async () => {
     setLoading(true)
     setError('')
     try {
@@ -131,10 +141,15 @@ export function ProduksiTelurPage() {
       if (startDate) params.startDate = startDate
       if (endDate) params.endDate = endDate
 
-      const data = await getRiwayatProduksi(params)
-      setProduksiList(data)
+      const [historyData, analyticsRes] = await Promise.all([
+        getRiwayatProduksi(params),
+        getProduksiPerformanceAnalytics(params),
+      ])
+
+      setProduksiList(historyData)
+      setAnalyticsData(analyticsRes)
     } catch (err) {
-      setError(err.message || 'Gagal memuat riwayat produksi telur.')
+      setError(err.message || 'Gagal memuat data dan analitik produksi telur.')
     } finally {
       setLoading(false)
     }
@@ -142,13 +157,12 @@ export function ProduksiTelurPage() {
 
   // Reload when filters change
   useEffect(() => {
-    // If custom range selected, only trigger if both are set or both are empty
     if (datePreset === 'custom') {
       if ((startDate && endDate) || (!startDate && !endDate)) {
-        loadRiwayat()
+        loadData()
       }
     } else {
-      loadRiwayat()
+      loadData()
     }
   }, [filterKandang, datePreset, startDate, endDate])
 
@@ -200,7 +214,7 @@ export function ProduksiTelurPage() {
       await createProduksiTelur(payload)
       setSuccessMsg('Data produksi telur harian berhasil dicatat!')
       setShowCreateModal(false)
-      await loadRiwayat()
+      await loadData()
     } catch (err) {
       if (err.status === 409) {
         const existingRec = produksiList.find(
@@ -229,7 +243,7 @@ export function ProduksiTelurPage() {
       setShowCreateModal(false)
       setDuplicateConflict(null)
     } else {
-      loadRiwayat().then(() => {
+      loadData().then(() => {
         setShowCreateModal(false)
         setDuplicateConflict(null)
       })
@@ -278,7 +292,7 @@ export function ProduksiTelurPage() {
       await updateProduksiTelur(selectedProduksi.id, payload)
       setSuccessMsg(`Data produksi telur #${selectedProduksi.id} berhasil diperbarui!`)
       setShowEditModal(false)
-      await loadRiwayat()
+      await loadData()
     } catch (err) {
       setError(err.message || 'Gagal memperbarui data produksi telur.')
     } finally {
@@ -304,7 +318,7 @@ export function ProduksiTelurPage() {
       const res = await deleteProduksiTelur(selectedProduksi.id)
       setSuccessMsg(res.message || `Data produksi #${selectedProduksi.id} berhasil dihapus.`)
       setShowDeleteModal(false)
-      await loadRiwayat()
+      await loadData()
     } catch (err) {
       setError(err.message || 'Gagal menghapus data produksi telur.')
     } finally {
@@ -345,10 +359,10 @@ export function ProduksiTelurPage() {
         <div>
           <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
             <Egg className="w-6 h-6 text-amber-400" />
-            Riwayat & Pencatatan Produksi Telur
+            Produksi & Performa HDP Telur
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Filter riwayat panen telur berdasarkan kandang dan rentang tanggal dengan kalkulasi agregasi realtime.
+            Monitoring performa Hen Day Production (HDP%), visualisasi grafik time-series, dan manajemen panen harian.
           </p>
         </div>
 
@@ -455,27 +469,28 @@ export function ProduksiTelurPage() {
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
             <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider mr-1">Rentang:</span>
             {[
-              { id: 'semua', label: 'Semua Waktu' },
               { id: 'today', label: 'Hari Ini' },
               { id: '7days', label: '7 Hari Terakhir' },
               { id: '30days', label: '30 Hari Terakhir' },
               { id: 'this_month', label: 'Bulan Ini' },
+              { id: 'semua', label: 'Semua Waktu' },
               { id: 'custom', label: 'Custom Range' },
             ].map((p) => (
               <button
                 key={p.id}
                 onClick={() => handlePresetChange(p.id)}
-                className={`px-3 py-1.5 rounded-lg font-medium transition ${datePreset === p.id
-                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 font-semibold shadow-sm'
-                  : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 border border-slate-700/60'
-                  }`}
+                className={`px-3 py-1.5 rounded-lg font-medium transition ${
+                  datePreset === p.id
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 font-semibold shadow-sm'
+                    : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 border border-slate-700/60'
+                }`}
               >
                 {p.label}
               </button>
             ))}
 
             <button
-              onClick={loadRiwayat}
+              onClick={loadData}
               title="Refresh Data"
               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-white transition ml-1"
             >
@@ -516,7 +531,10 @@ export function ProduksiTelurPage() {
         )}
       </div>
 
-      {/* Production Records Table */}
+      {/* Visual Multi-Axis Performance Chart (T2.3) */}
+      <ProduksiChart analyticsData={analyticsData} loading={loading} />
+
+      {/* Production Records Table with HDP Badge */}
       {loading ? (
         <div className="py-16 flex flex-col items-center justify-center gap-3 text-slate-400">
           <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
@@ -543,6 +561,7 @@ export function ProduksiTelurPage() {
                 <th className="px-4 py-3.5 text-right">Cangkang Retak</th>
                 <th className="px-4 py-3.5 text-right">Pecah/Rusak</th>
                 <th className="px-4 py-3.5 text-right font-bold text-white">Total Butir</th>
+                <th className="px-4 py-3.5 text-center">HDP (%)</th>
                 <th className="px-4 py-3.5">Catatan</th>
                 <th className="px-4 py-3.5 text-right">Aksi</th>
               </tr>
@@ -556,6 +575,14 @@ export function ProduksiTelurPage() {
                 const totalItem =
                   item.total_butir ||
                   item.jumlah_butir_normal + item.jumlah_butir_retak + item.jumlah_butir_pecah
+                const hdpVal = item.hdp_percentage !== undefined ? item.hdp_percentage : 0
+
+                const hdpBadgeClass =
+                  hdpVal >= 85
+                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                    : hdpVal >= 70
+                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                    : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
 
                 return (
                   <tr key={item.id} className="hover:bg-slate-800/40 transition">
@@ -593,6 +620,13 @@ export function ProduksiTelurPage() {
                     <td className="px-4 py-3.5 text-right font-bold text-white">
                       {totalItem.toLocaleString('id-ID')}
                     </td>
+                    <td className="px-4 py-3.5 text-center">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${hdpBadgeClass}`}
+                      >
+                        {hdpVal}%
+                      </span>
+                    </td>
                     <td className="px-4 py-3.5 text-slate-400 max-w-xs truncate">
                       {item.catatan || '-'}
                     </td>
@@ -625,7 +659,7 @@ export function ProduksiTelurPage() {
             <span>
               Menampilkan <strong className="text-white">{produksiList.length}</strong> catatan produksi
             </span>
-            <span className="text-[11px]">Server-side Query Filtered & Eager Loaded</span>
+            <span className="text-[11px]">HDP dihitung on-the-fly dari populasi hidup</span>
           </div>
         </div>
       )}

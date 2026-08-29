@@ -12,6 +12,7 @@ from app.schemas.produksi_telur import (
     ProduksiTelurUpdate,
     ProduksiTelurResponse,
     ProduksiTelurDetailResponse,
+    ProduksiAnalyticsResponse,
 )
 from app.services.produksi_telur_service import ProduksiTelurService
 
@@ -44,6 +45,36 @@ def create_produksi(
 
 
 @router.get(
+    "/analytics/performance",
+    response_model=ProduksiAnalyticsResponse,
+    summary="Analitik Performa HDP dan Deret Waktu Produksi (T2.3)",
+    responses={
+        200: {"description": "Data analitik performa berhasil diambil."},
+        400: {"description": "Rentang tanggal tidak valid."},
+        401: {"description": "Belum terautentikasi."},
+        404: {"description": "Kandang tidak ditemukan."},
+    },
+)
+def get_performance_analytics_endpoint(
+    kandang_id: Optional[int] = Query(None, description="Filter berdasarkan ID kandang"),
+    start_date: Optional[date] = Query(None, description="Filter tanggal awal (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="Filter tanggal akhir (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Mengambil data deret waktu time-series performa harian (HDP% dan kuantitas butir)
+    beserta agregasi ringkasan periode untuk visualisasi grafik.
+    """
+    return ProduksiTelurService.get_performance_analytics(
+        db,
+        kandang_id=kandang_id,
+        start_date=start_date,
+        end_date=end_date
+    )
+
+
+@router.get(
     "/",
     response_model=List[ProduksiTelurDetailResponse],
     summary="Daftar & Riwayat Produksi Telur (Filtering & Eager Load)",
@@ -65,7 +96,7 @@ def list_riwayat_produksi(
 ):
     """
     Mengambil riwayat data produksi telur dengan filter kandang dan rentang tanggal.
-    Eager loading nama kandang diterapkan di level query database untuk mencegah N+1 query problem.
+    Eager loading nama kandang dan kalkulasi HDP% diterapkan di level service/query.
     """
     return ProduksiTelurService.get_riwayat_produksi(
         db,
@@ -118,19 +149,9 @@ def get_produksi_detail(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Mengambil 1 detail data produksi telur berdasarkan ID.
+    Mengambil 1 detail data produksi telur berdasarkan ID beserta kalkulasi HDP%.
     """
-    r = ProduksiTelurService.get_produksi_by_id(db, produksi_id)
-    return {
-        "id": r.id,
-        "kandang_id": r.kandang_id,
-        "tanggal": r.tanggal,
-        "jumlah_butir_normal": r.jumlah_butir_normal,
-        "jumlah_butir_retak": r.jumlah_butir_retak,
-        "jumlah_butir_pecah": r.jumlah_butir_pecah,
-        "catatan": r.catatan,
-        "nama_kandang": r.kandang.nama_kandang if r.kandang else None,
-    }
+    return ProduksiTelurService.get_produksi_by_id(db, produksi_id)
 
 
 @router.patch(
