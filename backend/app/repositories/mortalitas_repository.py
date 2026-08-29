@@ -64,6 +64,24 @@ class MortalitasRepository:
         )
 
     @staticmethod
+    def get_mortalitas_by_kandang_ids(
+        db: Session,
+        kandang_ids: List[int]
+    ) -> List[Mortalitas]:
+        """
+        Mengambil seluruh record mortalitas untuk sekumpulan ID kandang dalam 1 query batch (Anti N+1).
+        Diurutkan secara kronologis menaik (ASC) berdasarkan tanggal.
+        """
+        if not kandang_ids:
+            return []
+        return (
+            db.query(Mortalitas)
+            .filter(Mortalitas.kandang_id.in_(kandang_ids))
+            .order_by(Mortalitas.tanggal.asc(), Mortalitas.id.asc())
+            .all()
+        )
+
+    @staticmethod
     def get_all(
         db: Session,
         start_date: Optional[date] = None,

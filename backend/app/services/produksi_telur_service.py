@@ -1,5 +1,5 @@
 from datetime import date
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -7,26 +7,57 @@ from sqlalchemy.orm import Session
 from app.models.kandang import StatusKandang
 from app.models.produksi_telur import ProduksiTelur
 from app.repositories.kandang_repository import KandangRepository
+from app.repositories.mortalitas_repository import MortalitasRepository
 from app.repositories.produksi_telur_repository import ProduksiTelurRepository
 from app.schemas.produksi_telur import ProduksiTelurCreate, ProduksiTelurUpdate
+from app.services.population_calculator import (
+    build_mortality_prefix_sum,
+    get_effective_population,
+    calculate_hdp as pure_calculate_hdp,
+)
 
 
 class ProduksiTelurService:
     """
     Business Logic Layer untuk pengelolaan pencatatan, riwayat, dan analitik performa produksi telur harian.
-    Menerapkan validasi multi-level pencegahan duplikasi data (Service check & DB Integrity Constraint).
+    Menerapkan pola Functional Core, Imperative Shell (FCIS) untuk kalkulasi populasi historis (Time-Travel).
     """
 
     @staticmethod
     def calculate_hdp(jumlah_normal: int, populasi: int) -> float:
         """
-        Kalkulasi Hen Day Production (HDP%):
-        HDP = (jumlah_butir_normal / populasi) * 100
-        Menangani ZeroDivisionError jika populasi <= 0 dan membulatkan ke 2 desimal.
+        Kalkulasi Hen Day Production (HDP%) murni via pure domain calculator.
         """
-        if populasi is None or populasi <= 0 or jumlah_normal is None or jumlah_normal <= 0:
-            return 0.0
-        return round((jumlah_normal / populasi) * 100, 2)
+        return pure_calculate_hdp(jumlah_normal, populasi)
+
+    @staticmethod
+    def _build_kandang_prefix_sums(
+        db: Session,
+        kandang_ids: List[int]
+    ) -> Dict[int, List[Tuple[date, int]]]:
+        """
+        Imperative Shell Helper:
+        Mengambil seluruh data mortalitas untuk sekumpulan ID kandang dalam 1 kali batch query (Anti N+1),
+        kemudian mempartisi data per kandang dan membangun prefix sum deret kumulatif kematian.
+        """
+        if not kandang_ids:
+            return {}
+
+        unique_ids = list(set(kandang_ids))
+        mortalitas_records = MortalitasRepository.get_mortalitas_by_kandang_ids(db, unique_ids)
+
+        # 1. Partisi in-memory per kandang_id (mencegah data leakage antar kandang)
+        partitioned: Dict[int, List[Tuple[date, int]]] = {kid: [] for kid in unique_ids}
+        for m in mortalitas_records:
+            if m.kandang_id in partitioned:
+                partitioned[m.kandang_id].append((m.tanggal, m.jumlah))
+
+        # 2. Bangun prefix sum map per kandang
+        prefix_sums: Dict[int, List[Tuple[date, int]]] = {}
+        for kid, mort_list in partitioned.items():
+            prefix_sums[kid] = build_mortality_prefix_sum(mort_list)
+
+        return prefix_sums
 
     @staticmethod
     def create_produksi(db: Session, data: ProduksiTelurCreate) -> ProduksiTelur:
@@ -100,7 +131,7 @@ class ProduksiTelurService:
     @staticmethod
     def get_produksi_by_id(db: Session, produksi_id: int) -> Dict[str, Any]:
         """
-        Mengambil 1 entitas data produksi telur berdasarkan ID dengan kalkulasi HDP & deteksi anomali.
+        Mengambil 1 entitas data produksi telur berdasarkan ID dengan kalkulasi populasi historis efektif (Time-Travel).
         """
         produksi = ProduksiTelurRepository.get_by_id(db, produksi_id)
         if not produksi:
@@ -108,9 +139,14 @@ class ProduksiTelurService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Data produksi telur dengan ID {produksi_id} tidak ditemukan."
             )
-        
-        populasi = produksi.kandang.jumlah_saat_ini if produksi.kandang else 0
-        hdp = ProduksiTelurService.calculate_hdp(produksi.jumlah_butir_normal, populasi)
+
+        # Ambil prefix sum mortalitas untuk kandang ini
+        prefix_sums = ProduksiTelurService._build_kandang_prefix_sums(db, [produksi.kandang_id])
+        prefix_sum = prefix_sums.get(produksi.kandang_id, [])
+
+        jumlah_awal = produksi.kandang.jumlah_awal if produksi.kandang else 0
+        populasi_efektif = get_effective_population(jumlah_awal, prefix_sum, produksi.tanggal)
+        hdp = pure_calculate_hdp(produksi.jumlah_butir_normal, populasi_efektif)
         is_anomaly = bool(hdp > 100.0)
 
         return {
@@ -122,7 +158,7 @@ class ProduksiTelurService:
             "jumlah_butir_pecah": produksi.jumlah_butir_pecah,
             "catatan": produksi.catatan,
             "nama_kandang": produksi.kandang.nama_kandang if produksi.kandang else None,
-            "populasi_ayam": populasi,
+            "populasi_ayam": populasi_efektif,
             "hdp_percentage": hdp,
             "is_hdp_anomaly": is_anomaly,
         }
@@ -226,7 +262,7 @@ class ProduksiTelurService:
     ) -> List[Dict[str, Any]]:
         """
         Mengambil riwayat data produksi telur dengan filter dinamis kandang dan rentang tanggal.
-        Memvalidasi konsistensi tanggal (start_date <= end_date) dan menyertakan nama_kandang, HDP%, & is_hdp_anomaly flag.
+        Menggunakan batch prefix sum (Anti N+1) untuk menghitung populasi dinamis per tanggal historis.
         """
         # 1. Validasi konsistensi rentang tanggal
         if (
@@ -263,11 +299,17 @@ class ProduksiTelurService:
             offset=offset if isinstance(offset, int) else 0
         )
 
-        # 4. Map ke list detail dengan nama_kandang, kalkulasi HDP%, & is_hdp_anomaly flag
+        # 4. Batch query prefix sum mortalitas untuk semua kandang yang terlibat
+        kandang_ids = list({r.kandang_id for r in records if r.kandang_id})
+        prefix_sums = ProduksiTelurService._build_kandang_prefix_sums(db, kandang_ids)
+
+        # 5. Map ke list detail dengan populasi historis dinamis & HDP%
         results = []
         for r in records:
-            populasi = r.kandang.jumlah_saat_ini if r.kandang else 0
-            hdp = ProduksiTelurService.calculate_hdp(r.jumlah_butir_normal, populasi)
+            prefix_sum = prefix_sums.get(r.kandang_id, [])
+            jumlah_awal = r.kandang.jumlah_awal if r.kandang else 0
+            populasi_efektif = get_effective_population(jumlah_awal, prefix_sum, r.tanggal)
+            hdp = pure_calculate_hdp(r.jumlah_butir_normal, populasi_efektif)
             is_anomaly = bool(hdp > 100.0)
 
             results.append({
@@ -279,7 +321,7 @@ class ProduksiTelurService:
                 "jumlah_butir_pecah": r.jumlah_butir_pecah,
                 "catatan": r.catatan,
                 "nama_kandang": r.kandang.nama_kandang if r.kandang else None,
-                "populasi_ayam": populasi,
+                "populasi_ayam": populasi_efektif,
                 "hdp_percentage": hdp,
                 "is_hdp_anomaly": is_anomaly,
             })
@@ -293,8 +335,8 @@ class ProduksiTelurService:
         end_date: Optional[date] = None
     ) -> Dict[str, Any]:
         """
-        Mengambil deret waktu performa harian dan ringkasan agregasi metrik periode terpilih (T2.3 & T2.4).
-        Data points diurutkan menaik (ASC) untuk kebutuhan visualisasi grafik, dilengkapi penanda anomali HDP > 100%.
+        Mengambil deret waktu performa harian dan ringkasan agregasi metrik periode terpilih (T2.5).
+        Data points diurutkan menaik (ASC) untuk kebutuhan visualisasi grafik, dihitung dengan populasi historis dinamis.
         """
         # 1. Validasi rentang tanggal
         if (
@@ -329,11 +371,17 @@ class ProduksiTelurService:
             end_date=end_date if isinstance(end_date, date) else None
         )
 
-        # 4. Transformasi titik data (Data Points) dengan flag is_hdp_anomaly
+        # 4. Batch query prefix sum mortalitas
+        kandang_ids = list({r.kandang_id for r in records if r.kandang_id})
+        prefix_sums = ProduksiTelurService._build_kandang_prefix_sums(db, kandang_ids)
+
+        # 5. Transformasi titik data (Data Points) dengan populasi historis dinamis
         data_points = []
         for r in records:
-            populasi = r.kandang.jumlah_saat_ini if r.kandang else 0
-            hdp = ProduksiTelurService.calculate_hdp(r.jumlah_butir_normal, populasi)
+            prefix_sum = prefix_sums.get(r.kandang_id, [])
+            jumlah_awal = r.kandang.jumlah_awal if r.kandang else 0
+            populasi_efektif = get_effective_population(jumlah_awal, prefix_sum, r.tanggal)
+            hdp = pure_calculate_hdp(r.jumlah_butir_normal, populasi_efektif)
             is_anomaly = bool(hdp > 100.0)
             total_butir = r.jumlah_butir_normal + r.jumlah_butir_retak + r.jumlah_butir_pecah
 
@@ -345,12 +393,12 @@ class ProduksiTelurService:
                 "jumlah_butir_retak": r.jumlah_butir_retak,
                 "jumlah_butir_pecah": r.jumlah_butir_pecah,
                 "total_butir": total_butir,
-                "populasi_ayam": populasi,
+                "populasi_ayam": populasi_efektif,
                 "hdp_percentage": hdp,
                 "is_hdp_anomaly": is_anomaly,
             })
 
-        # 5. Kalkulasi Ringkasan Agregasi (Performance Summary) termasuk total_anomali_hdp
+        # 6. Kalkulasi Ringkasan Agregasi (Performance Summary)
         total_normal = sum(dp["jumlah_butir_normal"] for dp in data_points)
         total_retak = sum(dp["jumlah_butir_retak"] for dp in data_points)
         total_pecah = sum(dp["jumlah_butir_pecah"] for dp in data_points)
