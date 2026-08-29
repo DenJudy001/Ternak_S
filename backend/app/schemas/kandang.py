@@ -40,10 +40,10 @@ class KandangUpdate(BaseModel):
         None,
         description="Status operasional kandang: 'aktif' atau 'afkir'"
     )
-    jumlah_saat_ini: Optional[int] = Field(
+    jumlah_awal: Optional[int] = Field(
         None,
-        ge=0,
-        description="Koreksi manual jumlah ayam saat ini (tidak boleh negatif)"
+        gt=0,
+        description="Koreksi jumlah awal populasi ayam saat masuk kandang (Genesis Fact)"
     )
 
 

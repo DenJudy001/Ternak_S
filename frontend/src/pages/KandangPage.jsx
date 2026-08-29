@@ -61,7 +61,7 @@ export function KandangPage() {
     nama_kandang: '',
     tanggal_mulai: '',
     status: 'aktif',
-    jumlah_saat_ini: '',
+    jumlah_awal: '',
   })
 
   // Form Mortalitas State
@@ -144,7 +144,7 @@ export function KandangPage() {
       nama_kandang: kandang.nama_kandang,
       tanggal_mulai: kandang.tanggal_mulai,
       status: kandang.status,
-      jumlah_saat_ini: kandang.jumlah_saat_ini,
+      jumlah_awal: kandang.jumlah_awal,
     })
     setShowEditModal(true)
   }
@@ -163,15 +163,15 @@ export function KandangPage() {
         nama_kandang: editForm.nama_kandang.trim(),
         tanggal_mulai: editForm.tanggal_mulai,
         status: editForm.status,
-        jumlah_saat_ini: parseInt(editForm.jumlah_saat_ini, 10),
+        jumlah_awal: parseInt(editForm.jumlah_awal, 10),
       }
 
-      if (isNaN(payload.jumlah_saat_ini) || payload.jumlah_saat_ini < 0) {
-        throw new Error('Jumlah ayam saat ini tidak boleh bernilai negatif.')
+      if (isNaN(payload.jumlah_awal) || payload.jumlah_awal <= 0) {
+        throw new Error('Jumlah awal ayam harus berupa angka lebih dari 0.')
       }
 
       await updateKandang(selectedKandang.id, payload)
-      setSuccessMsg(`Data kandang '${payload.nama_kandang}' berhasil diperbarui!`)
+      setSuccessMsg(`Data kandang '${payload.nama_kandang}' berhasil diperbarui! Populasi saat ini disinkronkan otomatis.`)
       setShowEditModal(false)
       await loadKandang()
     } catch (err) {
@@ -786,19 +786,74 @@ export function KandangPage() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Koreksi Populasi Saat Ini (Ekor)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  required
-                  value={editForm.jumlah_saat_ini}
-                  onChange={(e) => setEditForm({ ...editForm, jumlah_saat_ini: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
+              {(() => {
+                const totalMati = selectedKandang
+                  ? Math.max(0, selectedKandang.jumlah_awal - selectedKandang.jumlah_saat_ini)
+                  : 0
+                const inputAwal = parseInt(editForm.jumlah_awal, 10)
+                const estimasiPopulasiBaru = !isNaN(inputAwal) ? inputAwal - totalMati : null
+                const isUnderflow = !isNaN(inputAwal) && inputAwal < totalMati
+
+                return (
+                  <>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                        Koreksi Jumlah Awal (Populasi Masuk Awal)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={editForm.jumlah_awal}
+                        onChange={(e) => setEditForm({ ...editForm, jumlah_awal: e.target.value })}
+                        className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border text-white text-sm focus:outline-none focus:ring-2 ${
+                          isUnderflow
+                            ? 'border-rose-500 focus:ring-rose-500'
+                            : 'border-slate-700 focus:ring-emerald-500'
+                        }`}
+                      />
+                      <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                        💡 Mengubah jumlah awal akan otomatis menghitung ulang populasi saat ini berdasarkan seluruh riwayat catatan kematian.
+                      </p>
+                    </div>
+
+                    {/* Read-Only Informative Summary */}
+                    <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2 text-xs">
+                      <div className="flex items-center justify-between text-slate-400">
+                        <span>Total Kematian Tercatat:</span>
+                        <span className="font-semibold text-rose-400">
+                          {totalMati.toLocaleString('id-ID')} ekor
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-400 pt-1.5 border-t border-slate-800/80">
+                        <span>Estimasi Populasi Saat Ini (Baru):</span>
+                        <span
+                          className={`font-bold ${
+                            isUnderflow
+                              ? 'text-rose-400'
+                              : estimasiPopulasiBaru !== null
+                              ? 'text-emerald-400'
+                              : 'text-slate-500'
+                          }`}
+                        >
+                          {estimasiPopulasiBaru !== null
+                            ? `${estimasiPopulasiBaru.toLocaleString('id-ID')} ekor`
+                            : '-'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {isUnderflow && (
+                      <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>
+                          Jumlah awal baru ({inputAwal} ekor) tidak boleh lebih kecil dari total kematian tercatat ({totalMati} ekor).
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
 
               <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-800">
                 <button

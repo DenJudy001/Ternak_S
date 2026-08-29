@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models.kandang import Kandang, StatusKandang
 from app.repositories.kandang_repository import KandangRepository
+from app.repositories.mortalitas_repository import MortalitasRepository
 from app.schemas.kandang import KandangCreate, KandangUpdate
 
 
@@ -11,7 +12,7 @@ class KandangService:
     """
     Business Logic Layer untuk pengelolaan Kandang.
     Menangani validasi aturan bisnis, inisialisasi status/populasi awal,
-    dan orkestrasi operasi repository.
+    serta komputasi deterministik derived state (jumlah_saat_ini) berbasis Genesis Fact (jumlah_awal).
     """
 
     @staticmethod
@@ -62,10 +63,14 @@ class KandangService:
         data: KandangUpdate
     ) -> Kandang:
         """
-        Memperbarui data kandang (nama, status afkir/aktif, atau koreksi jumlah saat ini).
+        Memperbarui data kandang (nama, tanggal_mulai, status, atau koreksi Genesis Fact jumlah_awal).
         Aturan Bisnis:
-        - Memvalidasi keberadaan kandang (404 jika tidak ditemukan).
-        - Memvalidasi jumlah_saat_ini tidak boleh bernilai negatif.
+        1. Memvalidasi keberadaan kandang (404 jika tidak ditemukan).
+        2. Jika jumlah_awal diubah:
+           - Mengambil total akumulasi kematian ayam pada kandang tersebut via MortalitasRepository.
+           - Underflow Protection Guard: Memastikan jumlah_awal baru >= total_mati (400 jika lebih kecil).
+           - Menghitung ulang running derived state: jumlah_saat_ini = jumlah_awal baru - total_mati.
+        3. Menjaga integritas data dan mencegah mutasi langsung pada running counter jumlah_saat_ini.
         """
         db_kandang = KandangService.get_kandang_by_id(db, kandang_id)
 
@@ -74,11 +79,21 @@ class KandangService:
         if "nama_kandang" in update_dict and update_dict["nama_kandang"]:
             update_dict["nama_kandang"] = update_dict["nama_kandang"].strip()
 
-        if "jumlah_saat_ini" in update_dict:
-            if update_dict["jumlah_saat_ini"] is not None and update_dict["jumlah_saat_ini"] < 0:
+        # Jika terdapat koreksi pada Genesis Fact jumlah_awal
+        if "jumlah_awal" in update_dict and update_dict["jumlah_awal"] is not None:
+            new_jumlah_awal = update_dict["jumlah_awal"]
+            total_mati = MortalitasRepository.get_total_mortalitas_by_kandang(db, kandang_id)
+
+            if new_jumlah_awal < total_mati:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Jumlah ayam saat ini tidak boleh bernilai negatif."
+                    detail=(
+                        f"Jumlah awal baru ({new_jumlah_awal}) tidak boleh lebih kecil dari "
+                        f"total akumulasi kematian yang sudah tercatat ({total_mati} ekor)."
+                    )
                 )
+
+            # Hitung ulang derived state jumlah_saat_ini secara deterministik
+            update_dict["jumlah_saat_ini"] = new_jumlah_awal - total_mati
 
         return KandangRepository.update(db, db_kandang, update_dict)
