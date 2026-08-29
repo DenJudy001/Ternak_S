@@ -100,7 +100,7 @@ class ProduksiTelurService:
     @staticmethod
     def get_produksi_by_id(db: Session, produksi_id: int) -> Dict[str, Any]:
         """
-        Mengambil 1 entitas data produksi telur berdasarkan ID dengan kalkulasi HDP.
+        Mengambil 1 entitas data produksi telur berdasarkan ID dengan kalkulasi HDP & deteksi anomali.
         """
         produksi = ProduksiTelurRepository.get_by_id(db, produksi_id)
         if not produksi:
@@ -111,6 +111,7 @@ class ProduksiTelurService:
         
         populasi = produksi.kandang.jumlah_saat_ini if produksi.kandang else 0
         hdp = ProduksiTelurService.calculate_hdp(produksi.jumlah_butir_normal, populasi)
+        is_anomaly = bool(hdp > 100.0)
 
         return {
             "id": produksi.id,
@@ -123,6 +124,7 @@ class ProduksiTelurService:
             "nama_kandang": produksi.kandang.nama_kandang if produksi.kandang else None,
             "populasi_ayam": populasi,
             "hdp_percentage": hdp,
+            "is_hdp_anomaly": is_anomaly,
         }
 
     @staticmethod
@@ -224,7 +226,7 @@ class ProduksiTelurService:
     ) -> List[Dict[str, Any]]:
         """
         Mengambil riwayat data produksi telur dengan filter dinamis kandang dan rentang tanggal.
-        Memvalidasi konsistensi tanggal (start_date <= end_date) dan menyertakan nama_kandang & HDP% hasil kalkulasi on-the-fly.
+        Memvalidasi konsistensi tanggal (start_date <= end_date) dan menyertakan nama_kandang, HDP%, & is_hdp_anomaly flag.
         """
         # 1. Validasi konsistensi rentang tanggal
         if (
@@ -261,11 +263,12 @@ class ProduksiTelurService:
             offset=offset if isinstance(offset, int) else 0
         )
 
-        # 4. Map ke list detail dengan nama_kandang & kalkulasi HDP%
+        # 4. Map ke list detail dengan nama_kandang, kalkulasi HDP%, & is_hdp_anomaly flag
         results = []
         for r in records:
             populasi = r.kandang.jumlah_saat_ini if r.kandang else 0
             hdp = ProduksiTelurService.calculate_hdp(r.jumlah_butir_normal, populasi)
+            is_anomaly = bool(hdp > 100.0)
 
             results.append({
                 "id": r.id,
@@ -278,6 +281,7 @@ class ProduksiTelurService:
                 "nama_kandang": r.kandang.nama_kandang if r.kandang else None,
                 "populasi_ayam": populasi,
                 "hdp_percentage": hdp,
+                "is_hdp_anomaly": is_anomaly,
             })
         return results
 
@@ -289,8 +293,8 @@ class ProduksiTelurService:
         end_date: Optional[date] = None
     ) -> Dict[str, Any]:
         """
-        Mengambil deret waktu performa harian dan ringkasan agregasi metrik periode terpilih (T2.3).
-        Data points diurutkan menaik (ASC) untuk kebutuhan visualisasi grafik.
+        Mengambil deret waktu performa harian dan ringkasan agregasi metrik periode terpilih (T2.3 & T2.4).
+        Data points diurutkan menaik (ASC) untuk kebutuhan visualisasi grafik, dilengkapi penanda anomali HDP > 100%.
         """
         # 1. Validasi rentang tanggal
         if (
@@ -325,11 +329,12 @@ class ProduksiTelurService:
             end_date=end_date if isinstance(end_date, date) else None
         )
 
-        # 4. Transformasi titik data (Data Points)
+        # 4. Transformasi titik data (Data Points) dengan flag is_hdp_anomaly
         data_points = []
         for r in records:
             populasi = r.kandang.jumlah_saat_ini if r.kandang else 0
             hdp = ProduksiTelurService.calculate_hdp(r.jumlah_butir_normal, populasi)
+            is_anomaly = bool(hdp > 100.0)
             total_butir = r.jumlah_butir_normal + r.jumlah_butir_retak + r.jumlah_butir_pecah
 
             data_points.append({
@@ -342,13 +347,15 @@ class ProduksiTelurService:
                 "total_butir": total_butir,
                 "populasi_ayam": populasi,
                 "hdp_percentage": hdp,
+                "is_hdp_anomaly": is_anomaly,
             })
 
-        # 5. Kalkulasi Ringkasan Agregasi (Performance Summary)
+        # 5. Kalkulasi Ringkasan Agregasi (Performance Summary) termasuk total_anomali_hdp
         total_normal = sum(dp["jumlah_butir_normal"] for dp in data_points)
         total_retak = sum(dp["jumlah_butir_retak"] for dp in data_points)
         total_pecah = sum(dp["jumlah_butir_pecah"] for dp in data_points)
         total_seluruh = total_normal + total_retak + total_pecah
+        total_anomali = sum(1 for dp in data_points if dp["is_hdp_anomaly"])
 
         rata_rata_hdp = (
             round(sum(dp["hdp_percentage"] for dp in data_points) / len(data_points), 2)
@@ -369,6 +376,7 @@ class ProduksiTelurService:
             "total_butir_pecah": total_pecah,
             "total_seluruh_butir": total_seluruh,
             "persentase_telur_abnormal": persentase_abnormal,
+            "total_anomali_hdp": total_anomali,
         }
 
         return {
