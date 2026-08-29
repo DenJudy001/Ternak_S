@@ -352,6 +352,32 @@ export function ProduksiTelurPage() {
     (parseInt(editForm.jumlah_butir_retak, 10) || 0) +
     (parseInt(editForm.jumlah_butir_pecah, 10) || 0)
 
+  // Realtime Sanity Check Calculation for Create Form
+  const selectedCreateKandang = kandangList.find(
+    (k) => k.id === parseInt(createForm.kandang_id, 10)
+  )
+  const createPopulasi = selectedCreateKandang?.jumlah_saat_ini || 0
+  const normalInputCreate = parseInt(createForm.jumlah_butir_normal, 10) || 0
+  const isCreateAnomaly =
+    createPopulasi > 0 && normalInputCreate > createPopulasi
+  const createHdpLive =
+    createPopulasi > 0 && normalInputCreate > 0
+      ? ((normalInputCreate / createPopulasi) * 100).toFixed(2)
+      : '0.00'
+
+  // Realtime Sanity Check Calculation for Edit Form
+  const selectedEditKandang = kandangList.find(
+    (k) => k.id === selectedProduksi?.kandang_id
+  )
+  const editPopulasi =
+    selectedProduksi?.populasi_ayam || selectedEditKandang?.jumlah_saat_ini || 0
+  const normalInputEdit = parseInt(editForm.jumlah_butir_normal, 10) || 0
+  const isEditAnomaly = editPopulasi > 0 && normalInputEdit > editPopulasi
+  const editHdpLive =
+    editPopulasi > 0 && normalInputEdit > 0
+      ? ((normalInputEdit / editPopulasi) * 100).toFixed(2)
+      : '0.00'
+
   return (
     <div className="space-y-6">
       {/* Top Banner / Actions */}
@@ -531,7 +557,7 @@ export function ProduksiTelurPage() {
         )}
       </div>
 
-      {/* Visual Multi-Axis Performance Chart (T2.3) */}
+      {/* Visual Multi-Axis Performance Chart (T2.3 & T2.4) */}
       <ProduksiChart analyticsData={analyticsData} loading={loading} />
 
       {/* Production Records Table with HDP Badge */}
@@ -576,13 +602,19 @@ export function ProduksiTelurPage() {
                   item.total_butir ||
                   item.jumlah_butir_normal + item.jumlah_butir_retak + item.jumlah_butir_pecah
                 const hdpVal = item.hdp_percentage !== undefined ? item.hdp_percentage : 0
+                const isAnomaly = item.is_hdp_anomaly || hdpVal > 100
 
-                const hdpBadgeClass =
-                  hdpVal >= 85
-                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                    : hdpVal >= 70
-                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                    : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                const hdpBadgeClass = isAnomaly
+                  ? 'bg-orange-500/20 text-orange-400 border-orange-500/40 ring-1 ring-orange-500/30'
+                  : hdpVal >= 85
+                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                  : hdpVal >= 70
+                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                  : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+
+                const hdpTooltipTitle = isAnomaly
+                  ? '⚠️ Anomali: Produksi melebihi 100% populasi ayam. Periksa kemungkinan salah ketik atau data populasi kandang.'
+                  : `Tingkat produktivitas: ${hdpVal}%`
 
                 return (
                   <tr key={item.id} className="hover:bg-slate-800/40 transition">
@@ -622,8 +654,12 @@ export function ProduksiTelurPage() {
                     </td>
                     <td className="px-4 py-3.5 text-center">
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${hdpBadgeClass}`}
+                        title={hdpTooltipTitle}
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border transition ${hdpBadgeClass}`}
                       >
+                        {isAnomaly && (
+                          <AlertTriangle className="w-3.5 h-3.5 mr-1 shrink-0 text-orange-400" />
+                        )}
                         {hdpVal}%
                       </span>
                     </td>
@@ -667,7 +703,7 @@ export function ProduksiTelurPage() {
       {/* MODAL: Catat Produksi Baru (Level 1 -> z-50) */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
               <h3 className="font-bold text-lg text-white flex items-center gap-2">
                 <Egg className="w-5 h-5 text-amber-400" />
@@ -713,6 +749,22 @@ export function ProduksiTelurPage() {
               </div>
             )}
 
+            {/* REALTIME SANITY CHECK WARNING BANNER (HDP > 100%) */}
+            {isCreateAnomaly && (
+              <div className="mb-4 p-3.5 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-300 text-xs space-y-1.5 animate-fade-in">
+                <div className="flex items-center gap-1.5 font-semibold text-orange-200">
+                  <AlertTriangle className="w-4 h-4 text-orange-400 shrink-0" />
+                  <span>Perhatian: Potensi Anomali Input (HDP &gt; 100%)</span>
+                </div>
+                <p className="leading-relaxed text-[11px]">
+                  Jumlah telur normal (<strong>{normalInputCreate.toLocaleString('id-ID')} butir</strong>)
+                  melebihi populasi ayam hidup di kandang ini (<strong>{createPopulasi.toLocaleString('id-ID')} ekor</strong>).
+                  Nilai HDP akan menjadi <strong className="text-orange-400 font-bold">{createHdpLive}%</strong>.
+                  Secara biologis 1 ekor ayam maksimal bertelur 1 butir/hari. Pastikan tidak ada kesalahan ketik sebelum menyimpan.
+                </p>
+              </div>
+            )}
+
             <form onSubmit={handleCreateSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -727,7 +779,7 @@ export function ProduksiTelurPage() {
                   >
                     {kandangList.map((k) => (
                       <option key={k.id} value={k.id}>
-                        {k.nama_kandang}
+                        {k.nama_kandang} ({k.jumlah_saat_ini.toLocaleString('id-ID')} ekor)
                       </option>
                     ))}
                   </select>
@@ -754,9 +806,16 @@ export function ProduksiTelurPage() {
                 </p>
 
                 <div>
-                  <label className="block text-xs font-medium text-emerald-400 mb-1">
-                    1. Jumlah Butir Normal (Kualitas Bagus) *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-emerald-400">
+                      1. Jumlah Butir Normal (Kualitas Bagus) *
+                    </label>
+                    {createPopulasi > 0 && (
+                      <span className="text-[10px] text-slate-400">
+                        Populasi: <strong className="text-white">{createPopulasi.toLocaleString('id-ID')}</strong> ekor
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="number"
                     min="0"
@@ -849,7 +908,7 @@ export function ProduksiTelurPage() {
       {/* MODAL: Edit Produksi Telur (Level 2 -> z-[60]) */}
       {showEditModal && selectedProduksi && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
               <h3 className="font-bold text-lg text-white flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-emerald-400" />
@@ -862,6 +921,22 @@ export function ProduksiTelurPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* REALTIME SANITY CHECK WARNING BANNER (HDP > 100%) */}
+            {isEditAnomaly && (
+              <div className="mb-4 p-3.5 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-300 text-xs space-y-1.5 animate-fade-in">
+                <div className="flex items-center gap-1.5 font-semibold text-orange-200">
+                  <AlertTriangle className="w-4 h-4 text-orange-400 shrink-0" />
+                  <span>Perhatian: Potensi Anomali Koreksi (HDP &gt; 100%)</span>
+                </div>
+                <p className="leading-relaxed text-[11px]">
+                  Koreksi jumlah telur normal (<strong>{normalInputEdit.toLocaleString('id-ID')} butir</strong>)
+                  melebihi populasi ayam hidup di kandang ini (<strong>{editPopulasi.toLocaleString('id-ID')} ekor</strong>).
+                  Nilai HDP akan menjadi <strong className="text-orange-400 font-bold">{editHdpLive}%</strong>.
+                  Secara biologis 1 ekor ayam maksimal bertelur 1 butir/hari. Pastikan tidak ada kesalahan ketik sebelum menyimpan.
+                </p>
+              </div>
+            )}
 
             <form onSubmit={handleEditSubmit} className="space-y-4">
               <div>
@@ -883,9 +958,16 @@ export function ProduksiTelurPage() {
                 </p>
 
                 <div>
-                  <label className="block text-xs font-medium text-emerald-400 mb-1">
-                    1. Jumlah Butir Normal *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-emerald-400">
+                      1. Jumlah Butir Normal *
+                    </label>
+                    {editPopulasi > 0 && (
+                      <span className="text-[10px] text-slate-400">
+                        Populasi: <strong className="text-white">{editPopulasi.toLocaleString('id-ID')}</strong> ekor
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="number"
                     min="0"
@@ -910,7 +992,7 @@ export function ProduksiTelurPage() {
                       onChange={(e) =>
                         setEditForm({ ...editForm, jumlah_butir_retak: e.target.value })
                       }
-                      className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
 

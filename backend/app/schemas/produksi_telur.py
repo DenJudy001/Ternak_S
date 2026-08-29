@@ -85,6 +85,10 @@ class ProduksiTelurDetailResponse(ProduksiTelurResponse):
         None,
         description="Persentase Hen Day Production (%) dihitung on-the-fly"
     )
+    is_hdp_anomaly: bool = Field(
+        False,
+        description="Penanda anomali jika HDP > 100% (melebihi kapasitas biologis 1 butir/ayam/hari)"
+    )
 
     @computed_field
     @property
@@ -95,7 +99,7 @@ class ProduksiTelurDetailResponse(ProduksiTelurResponse):
         return self.jumlah_butir_normal + self.jumlah_butir_retak + self.jumlah_butir_pecah
 
 
-# --- Skema Analitik Performa & Visualisasi Grafik (T2.3) ---
+# --- Skema Analitik Performa & Visualisasi Grafik (T2.3 & T2.4) ---
 
 class PerformanceDataPoint(BaseModel):
     tanggal: date = Field(..., description="Tanggal data titik performa")
@@ -107,6 +111,10 @@ class PerformanceDataPoint(BaseModel):
     total_butir: int = Field(..., ge=0, description="Total butir panen")
     populasi_ayam: int = Field(..., ge=0, description="Populasi ayam hidup saat ini")
     hdp_percentage: float = Field(..., ge=0.0, description="Persentase HDP (Hen Day Production)")
+    is_hdp_anomaly: bool = Field(
+        False,
+        description="Penanda anomali jika HDP > 100%"
+    )
 
 
 class PerformanceSummary(BaseModel):
@@ -119,6 +127,11 @@ class PerformanceSummary(BaseModel):
         ...,
         ge=0.0,
         description="Persentase telur rusak/retak/pecah terhadap total produksi (%)"
+    )
+    total_anomali_hdp: int = Field(
+        0,
+        ge=0,
+        description="Total jumlah hari/data point dengan HDP > 100%"
     )
 
 
