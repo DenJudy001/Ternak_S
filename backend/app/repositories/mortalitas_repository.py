@@ -1,5 +1,6 @@
 from datetime import date
 from typing import List, Optional
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.models.mortalitas import Mortalitas
 
@@ -62,6 +63,19 @@ class MortalitasRepository:
             .limit(limit)
             .all()
         )
+
+    @staticmethod
+    def get_total_mortalitas_by_kandang(db: Session, kandang_id: int) -> int:
+        """
+        Menghitung total akumulasi kematian ayam pada 1 kandang tertentu.
+        Query: SELECT COALESCE(SUM(jumlah), 0) FROM mortalitas WHERE kandang_id = :kandang_id
+        """
+        total = (
+            db.query(func.coalesce(func.sum(Mortalitas.jumlah), 0))
+            .filter(Mortalitas.kandang_id == kandang_id)
+            .scalar()
+        )
+        return int(total) if total is not None else 0
 
     @staticmethod
     def get_mortalitas_by_kandang_ids(

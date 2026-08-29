@@ -61,8 +61,8 @@ export async function createKandang(payload) {
 }
 
 /**
- * Memperbarui data kandang (nama, status, atau koreksi jumlah_saat_ini)
- * payload: { nama_kandang?, tanggal_mulai?, status?, jumlah_saat_ini? }
+ * Memperbarui data kandang (nama, status, atau koreksi Genesis Fact jumlah_awal)
+ * payload: { nama_kandang?, tanggal_mulai?, status?, jumlah_awal? }
  */
 export async function updateKandang(kandangId, payload) {
   const response = await fetch(`${API_BASE_URL}/api/v1/kandang/${kandangId}`, {

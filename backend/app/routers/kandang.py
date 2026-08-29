@@ -102,25 +102,3 @@ def update_kandang_patch(
     """
     return KandangService.update_kandang(db, kandang_id, kandang_in)
 
-
-@router.put(
-    "/{kandang_id}",
-    response_model=KandangResponse,
-    summary="Update Data Kandang (REST Equivalent)",
-    responses={
-        200: {"description": "Data kandang berhasil diperbarui."},
-        400: {"description": "Nilai update tidak valid."},
-        401: {"description": "Belum terautentikasi."},
-        404: {"description": "Kandang tidak ditemukan."},
-    },
-)
-def update_kandang_put(
-    kandang_id: int,
-    kandang_in: KandangUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Memperbarui atribut kandang (dukungan metode HTTP PUT).
-    """
-    return KandangService.update_kandang(db, kandang_id, kandang_in)
