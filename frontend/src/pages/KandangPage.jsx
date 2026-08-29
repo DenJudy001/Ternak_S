@@ -469,31 +469,28 @@ export function KandangPage() {
         <div className="inline-flex p-1 rounded-xl bg-slate-900 border border-slate-800 text-xs font-medium">
           <button
             onClick={() => setFilterStatus('semua')}
-            className={`px-3 py-1.5 rounded-lg transition ${
-              filterStatus === 'semua'
-                ? 'bg-slate-800 text-white font-semibold shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+            className={`px-3 py-1.5 rounded-lg transition ${filterStatus === 'semua'
+              ? 'bg-slate-800 text-white font-semibold shadow-sm'
+              : 'text-slate-400 hover:text-slate-200'
+              }`}
           >
             Semua ({totalKandang})
           </button>
           <button
             onClick={() => setFilterStatus('aktif')}
-            className={`px-3 py-1.5 rounded-lg transition ${
-              filterStatus === 'aktif'
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+            className={`px-3 py-1.5 rounded-lg transition ${filterStatus === 'aktif'
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold'
+              : 'text-slate-400 hover:text-slate-200'
+              }`}
           >
             Aktif ({totalAktif})
           </button>
           <button
             onClick={() => setFilterStatus('afkir')}
-            className={`px-3 py-1.5 rounded-lg transition ${
-              filterStatus === 'afkir'
-                ? 'bg-slate-800 text-amber-400 font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+            className={`px-3 py-1.5 rounded-lg transition ${filterStatus === 'afkir'
+              ? 'bg-slate-800 text-amber-400 font-semibold'
+              : 'text-slate-400 hover:text-slate-200'
+              }`}
           >
             Afkir ({totalKandang - totalAktif})
           </button>
@@ -546,11 +543,10 @@ export function KandangPage() {
                       <h4 className="font-bold text-white text-lg leading-snug">{kandang.nama_kandang}</h4>
                     </div>
                     <span
-                      className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
-                        isAktif
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                          : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                      }`}
+                      className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${isAktif
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                        : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                        }`}
                     >
                       {isAktif ? 'Aktif' : 'Afkir'}
                     </span>
@@ -604,9 +600,8 @@ export function KandangPage() {
                     </div>
                     <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          survivalRate > 90 ? 'bg-emerald-500' : survivalRate > 75 ? 'bg-amber-500' : 'bg-rose-500'
-                        }`}
+                        className={`h-full rounded-full transition-all duration-500 ${survivalRate > 90 ? 'bg-emerald-500' : survivalRate > 75 ? 'bg-amber-500' : 'bg-rose-500'
+                          }`}
                         style={{ width: `${Math.min(100, Math.max(0, survivalRate))}%` }}
                       />
                     </div>
@@ -732,151 +727,143 @@ export function KandangPage() {
       )}
 
       {/* MODAL: Edit Data Kandang */}
-      {showEditModal && selectedKandang && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
-              <h3 className="font-bold text-lg text-white">Edit Kandang #{selectedKandang.id}</h3>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="text-slate-400 hover:text-white transition p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {showEditModal && selectedKandang && (() => {
+        const totalMati = Math.max(0, selectedKandang.jumlah_awal - selectedKandang.jumlah_saat_ini)
+        const inputAwal = parseInt(editForm.jumlah_awal, 10)
+        const estimasiPopulasiBaru = !isNaN(inputAwal) ? inputAwal - totalMati : null
+        const isUnderflow = !isNaN(inputAwal) && inputAwal < totalMati
 
-            <form onSubmit={handleEditSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Nama Kandang
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editForm.nama_kandang}
-                  onChange={(e) => setEditForm({ ...editForm, nama_kandang: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Tanggal Mulai
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={editForm.tanggal_mulai}
-                  onChange={(e) => setEditForm({ ...editForm, tanggal_mulai: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Status Operasional
-                </label>
-                <select
-                  value={editForm.status}
-                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="aktif">Aktif (Sedang Berproduksi)</option>
-                  <option value="afkir">Afkir (Selesai Siklus)</option>
-                </select>
-              </div>
-
-              {(() => {
-                const totalMati = selectedKandang
-                  ? Math.max(0, selectedKandang.jumlah_awal - selectedKandang.jumlah_saat_ini)
-                  : 0
-                const inputAwal = parseInt(editForm.jumlah_awal, 10)
-                const estimasiPopulasiBaru = !isNaN(inputAwal) ? inputAwal - totalMati : null
-                const isUnderflow = !isNaN(inputAwal) && inputAwal < totalMati
-
-                return (
-                  <>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                        Koreksi Jumlah Awal (Populasi Masuk Awal)
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        required
-                        value={editForm.jumlah_awal}
-                        onChange={(e) => setEditForm({ ...editForm, jumlah_awal: e.target.value })}
-                        className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border text-white text-sm focus:outline-none focus:ring-2 ${
-                          isUnderflow
-                            ? 'border-rose-500 focus:ring-rose-500'
-                            : 'border-slate-700 focus:ring-emerald-500'
-                        }`}
-                      />
-                      <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
-                        💡 Mengubah jumlah awal akan otomatis menghitung ulang populasi saat ini berdasarkan seluruh riwayat catatan kematian.
-                      </p>
-                    </div>
-
-                    {/* Read-Only Informative Summary */}
-                    <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2 text-xs">
-                      <div className="flex items-center justify-between text-slate-400">
-                        <span>Total Kematian Tercatat:</span>
-                        <span className="font-semibold text-rose-400">
-                          {totalMati.toLocaleString('id-ID')} ekor
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-slate-400 pt-1.5 border-t border-slate-800/80">
-                        <span>Estimasi Populasi Saat Ini (Baru):</span>
-                        <span
-                          className={`font-bold ${
-                            isUnderflow
-                              ? 'text-rose-400'
-                              : estimasiPopulasiBaru !== null
-                              ? 'text-emerald-400'
-                              : 'text-slate-500'
-                          }`}
-                        >
-                          {estimasiPopulasiBaru !== null
-                            ? `${estimasiPopulasiBaru.toLocaleString('id-ID')} ekor`
-                            : '-'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {isUnderflow && (
-                      <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
-                        <span>
-                          Jumlah awal baru ({inputAwal} ekor) tidak boleh lebih kecil dari total kematian tercatat ({totalMati} ekor).
-                        </span>
-                      </div>
-                    )}
-                  </>
-                )
-              })()}
-
-              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-800">
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+            <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+                <h3 className="font-bold text-lg text-white">Edit Kandang #{selectedKandang.id}</h3>
                 <button
-                  type="button"
                   onClick={() => setShowEditModal(false)}
-                  disabled={submitting}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition"
+                  className="text-slate-400 hover:text-white transition p-1"
                 >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Simpan Perubahan</span>
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={handleEditSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Nama Kandang
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.nama_kandang}
+                    onChange={(e) => setEditForm({ ...editForm, nama_kandang: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Tanggal Mulai
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editForm.tanggal_mulai}
+                    onChange={(e) => setEditForm({ ...editForm, tanggal_mulai: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Status Operasional
+                  </label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="aktif">Aktif (Sedang Berproduksi)</option>
+                    <option value="afkir">Afkir (Selesai Siklus)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Koreksi Jumlah Awal (Populasi Masuk Awal)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={editForm.jumlah_awal}
+                    onChange={(e) => setEditForm({ ...editForm, jumlah_awal: e.target.value })}
+                    className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border text-white text-sm focus:outline-none focus:ring-2 ${isUnderflow
+                      ? 'border-rose-500 focus:ring-rose-500'
+                      : 'border-slate-700 focus:ring-emerald-500'
+                      }`}
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                    💡 Mengubah jumlah awal akan otomatis menghitung ulang populasi saat ini berdasarkan seluruh riwayat catatan kematian.
+                  </p>
+                </div>
+
+                {/* Read-Only Informative Summary */}
+                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span>Total Kematian Tercatat:</span>
+                    <span className="font-semibold text-rose-400">
+                      {totalMati.toLocaleString('id-ID')} ekor
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-400 pt-1.5 border-t border-slate-800/80">
+                    <span>Estimasi Populasi Saat Ini (Baru):</span>
+                    <span
+                      className={`font-bold ${isUnderflow
+                        ? 'text-rose-400'
+                        : estimasiPopulasiBaru !== null
+                          ? 'text-emerald-400'
+                          : 'text-slate-500'
+                        }`}
+                    >
+                      {estimasiPopulasiBaru !== null
+                        ? `${estimasiPopulasiBaru.toLocaleString('id-ID')} ekor`
+                        : '-'}
+                    </span>
+                  </div>
+                </div>
+
+                {isUnderflow && (
+                  <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>
+                      Jumlah awal baru ({inputAwal} ekor) tidak boleh lebih kecil dari total kematian tercatat ({totalMati} ekor).
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    disabled={submitting}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting || isUnderflow}
+                    className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <span>Simpan Perubahan</span>
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* MODAL: Catat Mortalitas Baru */}
       {showMortalitasModal && (
