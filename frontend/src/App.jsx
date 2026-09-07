@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { KandangPage } from './pages/KandangPage'
 import { ProduksiTelurPage } from './pages/ProduksiTelurPage'
+import { PengeluaranPage } from './pages/PengeluaranPage'
 import { checkServerHealth } from './services/api'
 import {
   LayoutDashboard,
@@ -117,13 +118,25 @@ function DashboardOverview({ onNavigate }) {
             </p>
           </div>
 
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 opacity-80">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-3">
-              <Receipt className="w-5 h-5" />
+          {/* Biaya & Pengeluaran Module - Active & Interactive */}
+          <div
+            onClick={() => onNavigate('pengeluaran')}
+            className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/50 transition cursor-pointer group relative overflow-hidden shadow-lg hover:shadow-emerald-500/5"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition">
+                <Receipt className="w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                T3.1 Ready
+              </span>
             </div>
-            <h4 className="font-semibold text-white text-base mb-1">Biaya & Pengeluaran</h4>
+            <h4 className="font-bold text-white text-base mb-1 group-hover:text-emerald-400 transition flex items-center justify-between">
+              <span>Biaya & Pengeluaran</span>
+              <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-1 transition" />
+            </h4>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Pencatatan pembelian pakan, obat/vitamin, listrik, air, dan gaji tenaga kerja.
+              Pencatatan pembelian pakan, obat/vaksin, operasional, gaji, dan alokasi per kandang.
             </p>
           </div>
 
@@ -229,6 +242,18 @@ function MainLayout() {
                 <Egg className="w-3.5 h-3.5" />
                 <span>Produksi Telur</span>
               </button>
+
+              <button
+                onClick={() => setActiveTab('pengeluaran')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium ${
+                  activeTab === 'pengeluaran'
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                <span>Pengeluaran</span>
+              </button>
             </nav>
           </div>
 
@@ -278,6 +303,7 @@ function MainLayout() {
         {activeTab === 'dashboard' && <DashboardOverview onNavigate={setActiveTab} />}
         {activeTab === 'kandang' && <KandangPage />}
         {activeTab === 'produksi-telur' && <ProduksiTelurPage />}
+        {activeTab === 'pengeluaran' && <PengeluaranPage />}
       </main>
 
       {/* Footer */}

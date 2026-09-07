@@ -6,6 +6,7 @@ from app.routers.auth import router as auth_router
 from app.routers.kandang import router as kandang_router
 from app.routers.mortalitas import router as mortalitas_router
 from app.routers.produksi_telur import router as produksi_telur_router
+from app.routers.pengeluaran import router as pengeluaran_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -30,6 +31,7 @@ app.include_router(auth_router, prefix=settings.API_V1_STR)
 app.include_router(kandang_router, prefix=settings.API_V1_STR)
 app.include_router(mortalitas_router, prefix=settings.API_V1_STR)
 app.include_router(produksi_telur_router, prefix=settings.API_V1_STR)
+app.include_router(pengeluaran_router, prefix=settings.API_V1_STR)
 
 
 @app.get("/", tags=["Root"])
@@ -42,6 +44,7 @@ async def root():
         "kandang": f"{settings.API_V1_STR}/kandang",
         "mortalitas": f"{settings.API_V1_STR}/mortalitas",
         "produksi_telur": f"{settings.API_V1_STR}/produksi-telur",
+        "pengeluaran": f"{settings.API_V1_STR}/pengeluaran",
     }
 
 
