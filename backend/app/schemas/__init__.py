@@ -28,6 +28,13 @@ from app.schemas.produksi_telur import (
     PerformanceSummary,
     ProduksiAnalyticsResponse,
 )
+from app.schemas.pengeluaran import (
+    PengeluaranBase,
+    PengeluaranCreate,
+    PengeluaranUpdate,
+    PengeluaranResponse,
+    PengeluaranSummaryResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -52,4 +59,9 @@ __all__ = [
     "PerformanceDataPoint",
     "PerformanceSummary",
     "ProduksiAnalyticsResponse",
+    "PengeluaranBase",
+    "PengeluaranCreate",
+    "PengeluaranUpdate",
+    "PengeluaranResponse",
+    "PengeluaranSummaryResponse",
 ]

@@ -34,6 +34,11 @@ class Kandang(Base):
         back_populates="kandang",
         passive_deletes=True
     )
+    pengeluaran_records = relationship(
+        "Pengeluaran",
+        back_populates="kandang",
+        passive_deletes=True
+    )
 
     def __repr__(self):
         return f"<Kandang id={self.id} nama='{self.nama_kandang}' status='{self.status}'>"
