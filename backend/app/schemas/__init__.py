@@ -35,6 +35,13 @@ from app.schemas.pengeluaran import (
     PengeluaranResponse,
     PengeluaranSummaryResponse,
 )
+from app.schemas.penjualan import (
+    PenjualanBase,
+    PenjualanCreate,
+    PenjualanUpdate,
+    PenjualanResponse,
+    PenjualanSummaryResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -64,4 +71,9 @@ __all__ = [
     "PengeluaranUpdate",
     "PengeluaranResponse",
     "PengeluaranSummaryResponse",
+    "PenjualanBase",
+    "PenjualanCreate",
+    "PenjualanUpdate",
+    "PenjualanResponse",
+    "PenjualanSummaryResponse",
 ]

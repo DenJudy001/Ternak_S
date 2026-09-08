@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     INITIAL_USER_USERNAME: str = "admin"
     INITIAL_USER_PASSWORD: str = "admin123"
 
+    # Business Logic & Conversion Constants
+    DEFAULT_BOBOT_BUTIR_KG: float = 0.06  # Asumsi 1 butir telur ~ 60 gram (0.06 kg)
+
     # CORS Configuration
     BACKEND_CORS_ORIGINS: Union[List[str], str] = [
         "http://localhost:5173",
