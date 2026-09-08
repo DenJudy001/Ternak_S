@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, Integer, String, Date, Enum, Numeric
+from sqlalchemy import Column, Integer, String, Date, Enum, Numeric, DateTime, func
 from app.core.database import Base
 
 
@@ -23,6 +23,18 @@ class Penjualan(Base):
     harga_satuan = Column(Numeric(12, 2), nullable=False)
     total = Column(Numeric(14, 2), nullable=False)
     pembeli = Column(String(100), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    @property
+    def kuantitas(self) -> float:
+        """
+        Kuantitas unit transaksi yang dihitung dari total / harga_satuan.
+        """
+        if self.harga_satuan and float(self.harga_satuan) > 0:
+            return round(float(self.total) / float(self.harga_satuan), 2)
+        if self.satuan_jual == SatuanJual.tray:
+            return round(self.jumlah_butir / 30.0, 2)
+        return float(self.jumlah_butir)
 
     def __repr__(self):
         return (
