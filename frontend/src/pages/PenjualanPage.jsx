@@ -6,6 +6,7 @@ import {
   updatePenjualan,
   deletePenjualan,
 } from '../services/penjualanService'
+import { getStokSummary } from '../services/stokService'
 import {
   ShoppingCart,
   Plus,
@@ -26,6 +27,7 @@ import {
   TrendingUp,
   Receipt,
   Sparkles,
+  AlertTriangle,
 } from 'lucide-react'
 
 // Konfigurasi visual satuan jual
@@ -98,6 +100,7 @@ export function PenjualanPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+  const [stokSummary, setStokSummary] = useState(null)
 
   // Filter states
   const [filterSatuan, setFilterSatuan] = useState('semua')
@@ -178,12 +181,13 @@ export function PenjualanPage() {
       if (endDate) params.end_date = endDate
       if (searchPembeli.trim()) params.search_pembeli = searchPembeli.trim()
 
-      const [listRes, summaryRes] = await Promise.all([
+      const [listRes, summaryRes, stokRes] = await Promise.all([
         getPenjualanList({ ...params, limit: 200 }),
         getPenjualanSummary({
           start_date: startDate || undefined,
           end_date: endDate || undefined,
         }),
+        getStokSummary().catch(() => null),
       ])
 
       setPenjualanList(listRes || [])
@@ -193,6 +197,7 @@ export function PenjualanPage() {
         total_transaksi: 0,
         breakdown_per_satuan: {},
       })
+      if (stokRes) setStokSummary(stokRes)
     } catch (err) {
       console.error('Fetch error:', err)
       setError(err.message || 'Gagal memuat data penjualan telur.')
@@ -510,8 +515,8 @@ export function PenjualanPage() {
               key={satKey}
               onClick={() => setFilterSatuan(filterSatuan === satKey ? 'semua' : satKey)}
               className={`p-3.5 rounded-xl border transition cursor-pointer flex items-center justify-between ${filterSatuan === satKey
-                  ? 'bg-slate-800 border-purple-500/50 shadow-md'
-                  : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                ? 'bg-slate-800 border-purple-500/50 shadow-md'
+                : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
                 }`}
             >
               <div>
@@ -540,8 +545,8 @@ export function PenjualanPage() {
                 key={p.id}
                 onClick={() => handlePresetChange(p.id)}
                 className={`px-3 py-1.5 rounded-lg transition font-medium ${datePreset === p.id
-                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30 font-semibold'
-                    : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30 font-semibold'
+                  : 'text-slate-400 hover:text-slate-200'
                   }`}
               >
                 {p.label}
@@ -761,8 +766,8 @@ export function PenjualanPage() {
                       type="button"
                       onClick={() => setCreateForm({ ...createForm, satuan_jual: key })}
                       className={`py-2 px-3 rounded-xl font-medium border text-center transition ${createForm.satuan_jual === key
-                          ? 'bg-purple-500/20 text-purple-400 border-purple-500/40 font-bold'
-                          : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:border-slate-700'
+                        ? 'bg-purple-500/20 text-purple-400 border-purple-500/40 font-bold'
+                        : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:border-slate-700'
                         }`}
                     >
                       {cfg.label}
@@ -774,14 +779,27 @@ export function PenjualanPage() {
               {/* Kuantitas & Harga Satuan */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 font-medium mb-1">
-                    Kuantitas ({createForm.satuan_jual})
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-slate-400 font-medium">
+                      Kuantitas ({createForm.satuan_jual})
+                    </label>
+                    {stokSummary && (
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded border font-mono font-medium ${stokSummary.stok_tersedia > 0
+                            ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+                            : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                          }`}
+                        title={`Sisa stok gudang: ${stokSummary.stok_tersedia} butir (~${stokSummary.tray} tray + ${stokSummary.butir_eceran} butir)`}
+                      >
+                        Stok: {stokSummary.stok_tersedia.toLocaleString('id-ID')} butir
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="number"
                     required
                     min="0.01"
-                    step={SATUAN_CONFIG[createForm.satuan_jual]?.step || '1'}
+                    step="any"
                     placeholder="0"
                     value={createForm.kuantitas}
                     onChange={(e) => setCreateForm({ ...createForm, kuantitas: e.target.value })}
@@ -847,6 +865,20 @@ export function PenjualanPage() {
                   </span>
                 </div>
               </div>
+
+              {/* Peringatan Over-Capacity jika Kuantitas Melebihi Stok Gudang */}
+              {createPreview.butirFisik > 0 &&
+                stokSummary &&
+                createPreview.butirFisik > stokSummary.stok_tersedia && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5 text-amber-300 text-xs">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div className="leading-relaxed">
+                      <span className="font-bold text-amber-200">Perhatian Kapasitas Stok: </span>
+                      Kuantitas penjualan ({createPreview.butirFisik.toLocaleString('id-ID')} butir) melebihi stok telur tersedia di gudang ({stokSummary.stok_tersedia.toLocaleString('id-ID')} butir).
+                      Transaksi tetap dapat disimpan, namun akan menyebabkan saldo stok gudang menjadi defisit.
+                    </div>
+                  </div>
+                )}
 
               {/* Nama Pembeli */}
               <div>
@@ -927,8 +959,8 @@ export function PenjualanPage() {
                       type="button"
                       onClick={() => setEditForm({ ...editForm, satuan_jual: key })}
                       className={`py-2 px-3 rounded-xl font-medium border text-center transition ${editForm.satuan_jual === key
-                          ? 'bg-purple-500/20 text-purple-400 border-purple-500/40 font-bold'
-                          : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:border-slate-700'
+                        ? 'bg-purple-500/20 text-purple-400 border-purple-500/40 font-bold'
+                        : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:border-slate-700'
                         }`}
                     >
                       {cfg.label}
