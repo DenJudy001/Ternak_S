@@ -42,6 +42,11 @@ from app.schemas.penjualan import (
     PenjualanResponse,
     PenjualanSummaryResponse,
 )
+from app.schemas.stok_telur import (
+    StokSummaryResponse,
+    StokLedgerItem,
+    StokLedgerResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -76,4 +81,7 @@ __all__ = [
     "PenjualanUpdate",
     "PenjualanResponse",
     "PenjualanSummaryResponse",
+    "StokSummaryResponse",
+    "StokLedgerItem",
+    "StokLedgerResponse",
 ]

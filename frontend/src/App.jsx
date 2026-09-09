@@ -5,6 +5,7 @@ import { KandangPage } from './pages/KandangPage'
 import { ProduksiTelurPage } from './pages/ProduksiTelurPage'
 import { PengeluaranPage } from './pages/PengeluaranPage'
 import { PenjualanPage } from './pages/PenjualanPage'
+import { StokTelurPage } from './pages/StokTelurPage'
 import { checkServerHealth } from './services/api'
 import {
   LayoutDashboard,
@@ -163,13 +164,25 @@ function DashboardOverview({ onNavigate }) {
             </p>
           </div>
 
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 opacity-80">
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-3">
-              <Boxes className="w-5 h-5" />
+          {/* Stok & Mutasi Telur Module - Active & Interactive */}
+          <div
+            onClick={() => onNavigate('stok-telur')}
+            className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-cyan-500/50 transition cursor-pointer group relative overflow-hidden shadow-lg hover:shadow-cyan-500/5"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition">
+                <Boxes className="w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-semibold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded-full">
+                T3.3 Ready
+              </span>
             </div>
-            <h4 className="font-semibold text-white text-base mb-1">Stok Fisik Telur</h4>
+            <h4 className="font-bold text-white text-base mb-1 group-hover:text-cyan-400 transition flex items-center justify-between">
+              <span>Stok & Mutasi Telur</span>
+              <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-1 transition" />
+            </h4>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Opname dan rekonsiliasi stok fisik telur siap jual di gudang penyimpanan.
+              Kalkulasi saldo siap jual (on-the-fly), konversi tray/kg, dan buku mutasi aliran telur.
             </p>
           </div>
         </div>
@@ -279,6 +292,18 @@ function MainLayout() {
                 <ShoppingCart className="w-3.5 h-3.5" />
                 <span>Penjualan</span>
               </button>
+
+              <button
+                onClick={() => setActiveTab('stok-telur')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium ${
+                  activeTab === 'stok-telur'
+                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-semibold'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Boxes className="w-3.5 h-3.5" />
+                <span>Stok Gudang</span>
+              </button>
             </nav>
           </div>
 
@@ -330,6 +355,7 @@ function MainLayout() {
         {activeTab === 'produksi-telur' && <ProduksiTelurPage />}
         {activeTab === 'pengeluaran' && <PengeluaranPage />}
         {activeTab === 'penjualan' && <PenjualanPage />}
+        {activeTab === 'stok-telur' && <StokTelurPage />}
       </main>
 
       {/* Footer */}
