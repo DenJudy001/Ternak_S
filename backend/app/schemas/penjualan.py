@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Dict, Optional
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.models.penjualan import SatuanJual
 
 
@@ -34,6 +34,13 @@ class PenjualanBase(BaseModel):
         gt=0,
         description="Opsi override jumlah fisik butir telur riil hasil penimbangan manual"
     )
+
+    @model_validator(mode="after")
+    def sanitize_jumlah_butir_manual(self):
+        # Override manual butir fisik hanya berlaku secara semantik pada penjualan satuan kg
+        if self.satuan_jual != SatuanJual.kg:
+            self.jumlah_butir_manual = None
+        return self
 
 
 class PenjualanCreate(PenjualanBase):
@@ -77,6 +84,12 @@ class PenjualanUpdate(BaseModel):
         gt=0,
         description="Koreksi override kuantitas butir fisik riil"
     )
+
+    @model_validator(mode="after")
+    def sanitize_update_jumlah_butir_manual(self):
+        if self.satuan_jual is not None and self.satuan_jual != SatuanJual.kg:
+            self.jumlah_butir_manual = None
+        return self
 
 
 class PenjualanResponse(BaseModel):

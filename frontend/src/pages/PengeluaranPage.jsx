@@ -130,6 +130,7 @@ export function PengeluaranPage() {
     tanggal: formatLocalDate(),
     kategori: 'pakan',
     nominal: '',
+    jumlah_kg: '',
     keterangan: '',
     kandang_id: '', // '' = umum peternakan
   })
@@ -140,6 +141,7 @@ export function PengeluaranPage() {
     tanggal: '',
     kategori: 'pakan',
     nominal: '',
+    jumlah_kg: '',
     keterangan: '',
     kandang_id: '',
   })
@@ -270,10 +272,19 @@ export function PengeluaranPage() {
         throw new Error('Nominal pengeluaran harus berupa angka lebih besar dari 0.')
       }
 
+      let numKg = null
+      if (createForm.kategori === 'pakan') {
+        numKg = parseFloat(createForm.jumlah_kg)
+        if (isNaN(numKg) || numKg <= 0) {
+          throw new Error('Jumlah pakan fisik (kg) harus berupa angka lebih besar dari 0.')
+        }
+      }
+
       const payload = {
         tanggal: createForm.tanggal,
         kategori: createForm.kategori,
         nominal: numNominal,
+        jumlah_kg: numKg,
         keterangan: createForm.keterangan ? createForm.keterangan.trim() : null,
         kandang_id: createForm.kandang_id ? parseInt(createForm.kandang_id, 10) : null,
       }
@@ -285,6 +296,7 @@ export function PengeluaranPage() {
         tanggal: formatLocalDate(),
         kategori: 'pakan',
         nominal: '',
+        jumlah_kg: '',
         keterangan: '',
         kandang_id: '',
       })
@@ -303,6 +315,7 @@ export function PengeluaranPage() {
       tanggal: item.tanggal,
       kategori: item.kategori,
       nominal: item.nominal ? String(item.nominal) : '',
+      jumlah_kg: item.jumlah_kg !== null && item.jumlah_kg !== undefined ? String(item.jumlah_kg) : '',
       keterangan: item.keterangan || '',
       kandang_id: item.kandang_id !== null && item.kandang_id !== undefined ? String(item.kandang_id) : '',
     })
@@ -324,10 +337,19 @@ export function PengeluaranPage() {
         throw new Error('Nominal pengeluaran harus berupa angka lebih besar dari 0.')
       }
 
+      let numKg = null
+      if (editForm.kategori === 'pakan') {
+        numKg = parseFloat(editForm.jumlah_kg)
+        if (isNaN(numKg) || numKg <= 0) {
+          throw new Error('Jumlah pakan fisik (kg) harus berupa angka lebih besar dari 0.')
+        }
+      }
+
       const payload = {
         tanggal: editForm.tanggal,
         kategori: editForm.kategori,
         nominal: numNominal,
+        jumlah_kg: numKg,
         keterangan: editForm.keterangan ? editForm.keterangan.trim() : null,
         kandang_id: editForm.kandang_id ? parseInt(editForm.kandang_id, 10) : null,
       }
@@ -710,9 +732,16 @@ export function PengeluaranPage() {
                         {item.keterangan || <span className="text-slate-600 italic">-</span>}
                       </td>
 
-                      {/* Nominal */}
-                      <td className="py-3 px-4 text-right font-mono font-bold text-white whitespace-nowrap">
-                        {formatRupiah(item.nominal)}
+                      {/* Nominal & Berat Pakan */}
+                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                        <div className="font-mono font-bold text-white">
+                          {formatRupiah(item.nominal)}
+                        </div>
+                        {item.kategori === 'pakan' && item.jumlah_kg && (
+                          <div className="text-[11px] font-mono text-emerald-400">
+                            ({item.jumlah_kg} kg)
+                          </div>
+                        )}
                       </td>
 
                       {/* Aksi */}
@@ -783,7 +812,14 @@ export function PengeluaranPage() {
                 <select
                   required
                   value={createForm.kategori}
-                  onChange={(e) => setCreateForm({ ...createForm, kategori: e.target.value })}
+                  onChange={(e) => {
+                    const newKat = e.target.value
+                    setCreateForm({
+                      ...createForm,
+                      kategori: newKat,
+                      jumlah_kg: newKat === 'pakan' ? createForm.jumlah_kg : '',
+                    })
+                  }}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500"
                 >
                   {Object.entries(KATEGORI_CONFIG).map(([key, cfg]) => (
@@ -793,6 +829,31 @@ export function PengeluaranPage() {
                   ))}
                 </select>
               </div>
+
+              {/* Conditional Input: Jumlah Pakan Fisik (Kg) */}
+              {createForm.kategori === 'pakan' && (
+                <div className="animate-in fade-in duration-150">
+                  <label className="block text-slate-400 font-medium mb-1">
+                    Jumlah Pakan Fisik (Kg) <span className="text-emerald-400 font-bold">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      required
+                      min="0.01"
+                      step="any"
+                      placeholder="0.0"
+                      value={createForm.jumlah_kg}
+                      onChange={(e) => setCreateForm({ ...createForm, jumlah_kg: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono focus:outline-none focus:border-emerald-500"
+                    />
+                    <span className="absolute right-3 top-2.5 text-slate-500 font-mono text-xs">kg</span>
+                  </div>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    Digunakan otomatis untuk menghitung FCR (Feed Conversion Ratio) di dashboard performa.
+                  </p>
+                </div>
+              )}
 
               {/* Nominal */}
               <div>
@@ -914,7 +975,14 @@ export function PengeluaranPage() {
                 <select
                   required
                   value={editForm.kategori}
-                  onChange={(e) => setEditForm({ ...editForm, kategori: e.target.value })}
+                  onChange={(e) => {
+                    const newKat = e.target.value
+                    setEditForm({
+                      ...editForm,
+                      kategori: newKat,
+                      jumlah_kg: newKat === 'pakan' ? editForm.jumlah_kg : '',
+                    })
+                  }}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500"
                 >
                   {Object.entries(KATEGORI_CONFIG).map(([key, cfg]) => (
@@ -924,6 +992,31 @@ export function PengeluaranPage() {
                   ))}
                 </select>
               </div>
+
+              {/* Conditional Input: Jumlah Pakan Fisik (Kg) */}
+              {editForm.kategori === 'pakan' && (
+                <div className="animate-in fade-in duration-150">
+                  <label className="block text-slate-400 font-medium mb-1">
+                    Jumlah Pakan Fisik (Kg) <span className="text-emerald-400 font-bold">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      required
+                      min="0.01"
+                      step="any"
+                      placeholder="0.0"
+                      value={editForm.jumlah_kg}
+                      onChange={(e) => setEditForm({ ...editForm, jumlah_kg: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono focus:outline-none focus:border-emerald-500"
+                    />
+                    <span className="absolute right-3 top-2.5 text-slate-500 font-mono text-xs">kg</span>
+                  </div>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    Digunakan otomatis untuk menghitung FCR (Feed Conversion Ratio) di dashboard performa.
+                  </p>
+                </div>
+              )}
 
               {/* Nominal */}
               <div>

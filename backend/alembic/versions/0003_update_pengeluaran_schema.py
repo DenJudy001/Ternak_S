@@ -41,7 +41,6 @@ def upgrade() -> None:
     op.add_column("pengeluaran", sa.Column("keterangan", sa.Text(), nullable=True))
     op.execute("UPDATE pengeluaran SET keterangan = deskripsi WHERE keterangan IS NULL AND deskripsi IS NOT NULL")
     op.drop_column("pengeluaran", "deskripsi")
-    op.drop_column("pengeluaran", "jumlah_kg")
 
     # 3. Update ENUM kategori_pengeluaran_enum if using PostgreSQL
     if is_postgres:
@@ -72,11 +71,10 @@ def downgrade() -> None:
     bind = op.get_bind()
     is_postgres = bind.dialect.name == "postgresql"
 
-    # Re-add deskripsi and jumlah_kg
+    # Re-add deskripsi
     op.add_column("pengeluaran", sa.Column("deskripsi", sa.String(length=255), nullable=True))
     op.execute("UPDATE pengeluaran SET deskripsi = keterangan WHERE deskripsi IS NULL AND keterangan IS NOT NULL")
     op.alter_column("pengeluaran", "deskripsi", nullable=False)
-    op.add_column("pengeluaran", sa.Column("jumlah_kg", sa.Numeric(precision=10, scale=2), nullable=True))
     op.drop_column("pengeluaran", "keterangan")
 
     # Drop foreign key and index for kandang_id

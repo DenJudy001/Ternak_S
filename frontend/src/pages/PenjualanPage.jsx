@@ -220,7 +220,7 @@ export function PenjualanPage() {
     const total = roundTwo(q * h)
 
     let butirFisik = 0
-    if (createForm.jumlah_butir_manual && parseInt(createForm.jumlah_butir_manual, 10) > 0) {
+    if (createForm.satuan_jual === 'kg' && createForm.jumlah_butir_manual && parseInt(createForm.jumlah_butir_manual, 10) > 0) {
       butirFisik = parseInt(createForm.jumlah_butir_manual, 10)
     } else if (createForm.satuan_jual === 'butir') {
       butirFisik = Math.floor(q)
@@ -240,7 +240,7 @@ export function PenjualanPage() {
     const total = roundTwo(q * h)
 
     let butirFisik = 0
-    if (editForm.jumlah_butir_manual && parseInt(editForm.jumlah_butir_manual, 10) > 0) {
+    if (editForm.satuan_jual === 'kg' && editForm.jumlah_butir_manual && parseInt(editForm.jumlah_butir_manual, 10) > 0) {
       butirFisik = parseInt(editForm.jumlah_butir_manual, 10)
     } else if (editForm.satuan_jual === 'butir') {
       butirFisik = Math.floor(q)
@@ -276,7 +276,7 @@ export function PenjualanPage() {
         kuantitas: q,
         harga_satuan: h,
         pembeli: createForm.pembeli ? createForm.pembeli.trim() : null,
-        jumlah_butir_manual: createForm.jumlah_butir_manual
+        jumlah_butir_manual: createForm.satuan_jual === 'kg' && createForm.jumlah_butir_manual
           ? parseInt(createForm.jumlah_butir_manual, 10)
           : null,
       }
@@ -335,7 +335,7 @@ export function PenjualanPage() {
         kuantitas: q,
         harga_satuan: h,
         pembeli: editForm.pembeli ? editForm.pembeli.trim() : null,
-        jumlah_butir_manual: editForm.jumlah_butir_manual
+        jumlah_butir_manual: editForm.satuan_jual === 'kg' && editForm.jumlah_butir_manual
           ? parseInt(editForm.jumlah_butir_manual, 10)
           : null,
       }
@@ -764,7 +764,13 @@ export function PenjualanPage() {
                     <button
                       key={key}
                       type="button"
-                      onClick={() => setCreateForm({ ...createForm, satuan_jual: key })}
+                      onClick={() =>
+                        setCreateForm((prev) => ({
+                          ...prev,
+                          satuan_jual: key,
+                          jumlah_butir_manual: key === 'kg' ? prev.jumlah_butir_manual : '',
+                        }))
+                      }
                       className={`py-2 px-3 rounded-xl font-medium border text-center transition ${createForm.satuan_jual === key
                         ? 'bg-purple-500/20 text-purple-400 border-purple-500/40 font-bold'
                         : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:border-slate-700'
@@ -957,7 +963,13 @@ export function PenjualanPage() {
                     <button
                       key={key}
                       type="button"
-                      onClick={() => setEditForm({ ...editForm, satuan_jual: key })}
+                      onClick={() =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          satuan_jual: key,
+                          jumlah_butir_manual: key === 'kg' ? prev.jumlah_butir_manual : '',
+                        }))
+                      }
                       className={`py-2 px-3 rounded-xl font-medium border text-center transition ${editForm.satuan_jual === key
                         ? 'bg-purple-500/20 text-purple-400 border-purple-500/40 font-bold'
                         : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:border-slate-700'

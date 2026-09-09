@@ -28,8 +28,8 @@ def calculate_penjualan_totals(
     """
     total = round(float(kuantitas) * float(harga_satuan), 2)
 
-    # Prioritas 1: Manual Override
-    if jumlah_butir_manual is not None and jumlah_butir_manual > 0:
+    # Prioritas 1: Manual Override (hanya berlaku jika satuan_jual == SatuanJual.kg)
+    if satuan_jual == SatuanJual.kg and jumlah_butir_manual is not None and jumlah_butir_manual > 0:
         return total, int(jumlah_butir_manual)
 
     # Prioritas 2: Kalkulasi berbasis Satuan Jual
@@ -211,6 +211,8 @@ class PenjualanService:
                 else db_penjualan.satuan_jual
             )
             eff_manual = update_dict.get("jumlah_butir_manual", None)
+            if eff_satuan != SatuanJual.kg:
+                eff_manual = None
 
             new_total, new_jumlah_butir = calculate_penjualan_totals(
                 kuantitas=eff_kuantitas,
