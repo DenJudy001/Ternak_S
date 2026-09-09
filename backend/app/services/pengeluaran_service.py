@@ -43,6 +43,7 @@ class PengeluaranService:
             "tanggal": data.tanggal,
             "kategori": data.kategori,
             "nominal": data.nominal,
+            "jumlah_kg": data.jumlah_kg if data.kategori == KategoriPengeluaran.pakan else None,
             "keterangan": data.keterangan.strip() if data.keterangan else None,
             "kandang_id": data.kandang_id,
         }
@@ -151,6 +152,24 @@ class PengeluaranService:
 
         if "keterangan" in update_dict and update_dict["keterangan"]:
             update_dict["keterangan"] = update_dict["keterangan"].strip()
+
+        # Sanitasi dan validasi jumlah_kg berdasarkan kategori aktif
+        effective_kategori = update_dict.get("kategori", db_pengeluaran.kategori)
+        if effective_kategori != KategoriPengeluaran.pakan:
+            update_dict["jumlah_kg"] = None
+        else:
+            if "jumlah_kg" in update_dict:
+                if update_dict["jumlah_kg"] is None or update_dict["jumlah_kg"] <= 0:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Jumlah pakan dalam satuan kg wajib diisi untuk kategori pakan."
+                    )
+            elif "kategori" in update_dict and update_dict["kategori"] == KategoriPengeluaran.pakan:
+                if db_pengeluaran.jumlah_kg is None or db_pengeluaran.jumlah_kg <= 0:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Jumlah pakan dalam satuan kg wajib diisi untuk kategori pakan."
+                    )
 
         return PengeluaranRepository.update(db, db_pengeluaran, update_dict)
 

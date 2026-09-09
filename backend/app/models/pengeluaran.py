@@ -25,6 +25,7 @@ class Pengeluaran(Base):
         index=True
     )
     nominal = Column(Numeric(14, 2), nullable=False)
+    jumlah_kg = Column(Numeric(10, 2), nullable=True)
     keterangan = Column(Text, nullable=True)
     kandang_id = Column(
         Integer,

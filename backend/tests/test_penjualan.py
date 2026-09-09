@@ -276,3 +276,57 @@ def test_invalid_date_range_throws_400(client):
     res = client.get("/api/v1/penjualan/?start_date=2026-03-10&end_date=2026-03-01")
     assert res.status_code == 400
     assert "tidak boleh lebih besar" in res.json()["detail"]
+
+
+def test_create_penjualan_non_kg_ignores_manual_override(client):
+    # Skenario bug user: satuan_jual='butir', kuantitas=10, jumlah_butir_manual=12
+    payload = {
+        "tanggal": "2026-03-01",
+        "satuan_jual": "butir",
+        "kuantitas": 10,
+        "harga_satuan": 2000.0,
+        "jumlah_butir_manual": 12,
+    }
+    response = client.post("/api/v1/penjualan/", json=payload)
+    assert response.status_code == 201
+    data = response.json()
+    # Harus 10 butir sesuai kuantitas, bukan 12 dari override manual
+    assert data["jumlah_butir"] == 10
+
+
+def test_create_penjualan_tray_ignores_manual_override(client):
+    payload = {
+        "tanggal": "2026-03-01",
+        "satuan_jual": "tray",
+        "kuantitas": 2,
+        "harga_satuan": 50000.0,
+        "jumlah_butir_manual": 15,
+    }
+    response = client.post("/api/v1/penjualan/", json=payload)
+    assert response.status_code == 201
+    data = response.json()
+    # 2 tray * 30 = 60 butir, bukan 15
+    assert data["jumlah_butir"] == 60
+
+
+def test_update_penjualan_switch_from_kg_clears_manual_override(client):
+    # Buat transaksi kg dengan manual override 18 butir
+    create_res = client.post("/api/v1/penjualan/", json={
+        "tanggal": "2026-03-01",
+        "satuan_jual": "kg",
+        "kuantitas": 1.0,
+        "harga_satuan": 30000.0,
+        "jumlah_butir_manual": 18,
+    })
+    entry_id = create_res.json()["id"]
+    assert create_res.json()["jumlah_butir"] == 18
+
+    # Update ke butir kuantitas 10 dengan sisa payload jumlah_butir_manual
+    patch_res = client.patch(f"/api/v1/penjualan/{entry_id}", json={
+        "satuan_jual": "butir",
+        "kuantitas": 10,
+        "jumlah_butir_manual": 18,
+    })
+    assert patch_res.status_code == 200
+    assert patch_res.json()["jumlah_butir"] == 10
+

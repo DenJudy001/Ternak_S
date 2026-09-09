@@ -91,6 +91,7 @@ def test_create_pengeluaran_valid_direct_cost(client, seed_kandang):
         "tanggal": "2026-03-01",
         "kategori": "pakan",
         "nominal": 1500000.0,
+        "jumlah_kg": 50.0,
         "keterangan": "Beli 5 sak pakan konsentrat",
         "kandang_id": kandang_a.id,
     }
@@ -100,6 +101,7 @@ def test_create_pengeluaran_valid_direct_cost(client, seed_kandang):
     assert data["id"] is not None
     assert data["kategori"] == "pakan"
     assert data["nominal"] == 1500000.0
+    assert data["jumlah_kg"] == 50.0
     assert data["keterangan"] == "Beli 5 sak pakan konsentrat"
     assert data["kandang_id"] == kandang_a.id
     assert data["nama_kandang"] == "Kandang Alpha"
@@ -164,10 +166,10 @@ def test_get_pengeluaran_list_filter_and_sorting(client, seed_kandang):
 
     # Create multiple entries
     entries = [
-        {"tanggal": "2026-03-01", "kategori": "pakan", "nominal": 1000000.0, "kandang_id": kandang_a.id},
+        {"tanggal": "2026-03-01", "kategori": "pakan", "nominal": 1000000.0, "jumlah_kg": 100.0, "kandang_id": kandang_a.id},
         {"tanggal": "2026-03-02", "kategori": "obat_vaksin", "nominal": 200000.0, "kandang_id": kandang_b.id},
         {"tanggal": "2026-03-03", "kategori": "operasional", "nominal": 500000.0, "kandang_id": None},
-        {"tanggal": "2026-03-04", "kategori": "pakan", "nominal": 1200000.0, "kandang_id": kandang_a.id},
+        {"tanggal": "2026-03-04", "kategori": "pakan", "nominal": 1200000.0, "jumlah_kg": 120.0, "kandang_id": kandang_a.id},
     ]
     for item in entries:
         res = client.post("/api/v1/pengeluaran/", json=item)
@@ -215,8 +217,8 @@ def test_get_pengeluaran_summary_aggregation(client, seed_kandang):
     kandang_a, _ = seed_kandang
 
     entries = [
-        {"tanggal": "2026-03-01", "kategori": "pakan", "nominal": 1000000.0, "kandang_id": kandang_a.id},
-        {"tanggal": "2026-03-02", "kategori": "pakan", "nominal": 500000.0, "kandang_id": kandang_a.id},
+        {"tanggal": "2026-03-01", "kategori": "pakan", "nominal": 1000000.0, "jumlah_kg": 100.0, "kandang_id": kandang_a.id},
+        {"tanggal": "2026-03-02", "kategori": "pakan", "nominal": 500000.0, "jumlah_kg": 50.0, "kandang_id": kandang_a.id},
         {"tanggal": "2026-03-03", "kategori": "gaji", "nominal": 2500000.0, "kandang_id": None},
         {"tanggal": "2026-03-04", "kategori": "peralatan", "nominal": 300000.0, "kandang_id": kandang_a.id},
     ]
@@ -228,6 +230,7 @@ def test_get_pengeluaran_summary_aggregation(client, seed_kandang):
     assert res_summary.status_code == 200
     data = res_summary.json()
     assert data["total_pengeluaran"] == 4300000.0
+    assert data["total_kg_pakan"] == 150.0
     breakdown = data["breakdown_per_kategori"]
     assert breakdown["pakan"] == 1500000.0
     assert breakdown["gaji"] == 2500000.0
@@ -241,6 +244,7 @@ def test_get_pengeluaran_summary_aggregation(client, seed_kandang):
     assert res_kandang_summary.status_code == 200
     kandang_data = res_kandang_summary.json()
     assert kandang_data["total_pengeluaran"] == 1800000.0
+    assert kandang_data["total_kg_pakan"] == 150.0
     assert kandang_data["breakdown_per_kategori"]["pakan"] == 1500000.0
     assert kandang_data["breakdown_per_kategori"]["peralatan"] == 300000.0
     assert kandang_data["breakdown_per_kategori"]["gaji"] == 0.0
@@ -253,6 +257,7 @@ def test_update_pengeluaran_success_and_validation(client, seed_kandang):
         "tanggal": "2026-03-01",
         "kategori": "pakan",
         "nominal": 1000000.0,
+        "jumlah_kg": 100.0,
         "keterangan": "Pakan starter",
         "kandang_id": kandang_a.id,
     })
@@ -309,3 +314,168 @@ def test_invalid_date_range_throws_400(client):
     res_summary = client.get("/api/v1/pengeluaran/summary?start_date=2026-03-10&end_date=2026-03-01")
     assert res_summary.status_code == 400
     assert "tidak boleh lebih besar" in res_summary.json()["detail"]
+
+
+# ==========================================
+# Tests for Ticket T3.1.1 (jumlah_kg & FCR)
+# ==========================================
+
+def test_create_pengeluaran_pakan_without_jumlah_kg_rejected_422(client, seed_kandang):
+    """
+    Uji pembuatan pengeluaran pakan tanpa jumlah_kg ditolak dengan HTTP 422.
+    """
+    kandang_a, _ = seed_kandang
+
+    # 1. Tanpa key jumlah_kg sama sekali
+    payload_no_key = {
+        "tanggal": "2026-03-01",
+        "kategori": "pakan",
+        "nominal": 750000.0,
+        "kandang_id": kandang_a.id,
+    }
+    res_no_key = client.post("/api/v1/pengeluaran/", json=payload_no_key)
+    assert res_no_key.status_code == 422
+    assert "wajib diisi untuk kategori pakan" in str(res_no_key.json())
+
+    # 2. Key jumlah_kg bernilai None
+    payload_none = {
+        "tanggal": "2026-03-01",
+        "kategori": "pakan",
+        "nominal": 750000.0,
+        "jumlah_kg": None,
+        "kandang_id": kandang_a.id,
+    }
+    res_none = client.post("/api/v1/pengeluaran/", json=payload_none)
+    assert res_none.status_code == 422
+    assert "wajib diisi untuk kategori pakan" in str(res_none.json())
+
+    # 3. Key jumlah_kg bernilai 0
+    payload_zero = {
+        "tanggal": "2026-03-01",
+        "kategori": "pakan",
+        "nominal": 750000.0,
+        "jumlah_kg": 0,
+        "kandang_id": kandang_a.id,
+    }
+    res_zero = client.post("/api/v1/pengeluaran/", json=payload_zero)
+    assert res_zero.status_code == 422
+
+
+def test_create_pengeluaran_pakan_with_jumlah_kg_success(client, seed_kandang):
+    """
+    Uji pembuatan pengeluaran pakan dengan jumlah_kg > 0 berhasil (HTTP 201)
+    dan nilai jumlah_kg tersimpan presisi di database.
+    """
+    kandang_a, _ = seed_kandang
+    payload = {
+        "tanggal": "2026-03-01",
+        "kategori": "pakan",
+        "nominal": 650000.0,
+        "jumlah_kg": 75.5,
+        "keterangan": "Beli konsentrat 75.5 kg",
+        "kandang_id": kandang_a.id,
+    }
+    response = client.post("/api/v1/pengeluaran/", json=payload)
+    assert response.status_code == 201
+    data = response.json()
+    assert data["kategori"] == "pakan"
+    assert data["nominal"] == 650000.0
+    assert data["jumlah_kg"] == 75.5
+
+    # Verifikasi saat diambil via GET by ID
+    get_res = client.get(f"/api/v1/pengeluaran/{data['id']}")
+    assert get_res.status_code == 200
+    assert get_res.json()["jumlah_kg"] == 75.5
+
+
+def test_create_pengeluaran_non_pakan_with_jumlah_kg_sanitized_to_none(client):
+    """
+    Uji pembuatan pengeluaran non-pakan (misal operasional) dengan menyertakan
+    jumlah_kg -> berhasil (HTTP 201), namun server wajib membersihkan nilainya menjadi None.
+    """
+    payload = {
+        "tanggal": "2026-03-02",
+        "kategori": "operasional",
+        "nominal": 350000.0,
+        "jumlah_kg": 50.0,  # Payload tidak valid secara semantik non-pakan
+        "keterangan": "Beli bensin genset",
+    }
+    response = client.post("/api/v1/pengeluaran/", json=payload)
+    assert response.status_code == 201
+    data = response.json()
+    assert data["kategori"] == "operasional"
+    assert data["nominal"] == 350000.0
+    assert data["jumlah_kg"] is None
+
+    # Verifikasi di database via GET by ID
+    get_res = client.get(f"/api/v1/pengeluaran/{data['id']}")
+    assert get_res.status_code == 200
+    assert get_res.json()["jumlah_kg"] is None
+
+
+def test_patch_switch_category_from_pakan_to_non_pakan_resets_jumlah_kg_to_none(client, seed_kandang):
+    """
+    Uji pembaruan transaksi (PATCH): ubah kategori dari pakan ke obat_vaksin
+    -> pastikan jumlah_kg otomatis ter-reset menjadi None di database.
+    """
+    kandang_a, _ = seed_kandang
+
+    # 1. Buat transaksi awal kategori pakan dengan bobot 100 kg
+    create_res = client.post("/api/v1/pengeluaran/", json={
+        "tanggal": "2026-03-01",
+        "kategori": "pakan",
+        "nominal": 800000.0,
+        "jumlah_kg": 100.0,
+        "kandang_id": kandang_a.id,
+    })
+    assert create_res.status_code == 201
+    entry_id = create_res.json()["id"]
+    assert create_res.json()["jumlah_kg"] == 100.0
+
+    # 2. PATCH kategori menjadi obat_vaksin (tanpa menyebutkan jumlah_kg)
+    patch_res = client.patch(f"/api/v1/pengeluaran/{entry_id}", json={
+        "kategori": "obat_vaksin",
+    })
+    assert patch_res.status_code == 200
+    updated = patch_res.json()
+    assert updated["kategori"] == "obat_vaksin"
+    assert updated["jumlah_kg"] is None
+
+    # 3. Verifikasi konsistensi dari endpoint GET by ID
+    get_res = client.get(f"/api/v1/pengeluaran/{entry_id}")
+    assert get_res.status_code == 200
+    assert get_res.json()["kategori"] == "obat_vaksin"
+    assert get_res.json()["jumlah_kg"] is None
+
+
+def test_get_summary_aggregates_total_kg_pakan_accurately(client, seed_kandang):
+    """
+    Uji agregasi GET /summary: pastikan total_kg_pakan terakumulasi akurat
+    hanya dari kategori pakan.
+    """
+    kandang_a, kandang_b = seed_kandang
+
+    entries = [
+        {"tanggal": "2026-03-01", "kategori": "pakan", "nominal": 1200000.0, "jumlah_kg": 150.5, "kandang_id": kandang_a.id},
+        {"tanggal": "2026-03-02", "kategori": "pakan", "nominal": 400000.0, "jumlah_kg": 49.5, "kandang_id": kandang_b.id},
+        {"tanggal": "2026-03-03", "kategori": "operasional", "nominal": 300000.0, "kandang_id": None},
+        {"tanggal": "2026-03-04", "kategori": "gaji", "nominal": 1000000.0, "kandang_id": None},
+    ]
+    for item in entries:
+        res = client.post("/api/v1/pengeluaran/", json=item)
+        assert res.status_code == 201
+
+    # Cek summary global
+    res_summary = client.get("/api/v1/pengeluaran/summary")
+    assert res_summary.status_code == 200
+    summary = res_summary.json()
+    assert summary["total_pengeluaran"] == 2900000.0
+    # 150.5 + 49.5 = 200.0
+    assert summary["total_kg_pakan"] == 200.0
+
+    # Cek summary per kandang A (hanya 150.5 kg)
+    res_kandang_a = client.get(f"/api/v1/pengeluaran/summary?kandang_id={kandang_a.id}")
+    assert res_kandang_a.status_code == 200
+    kandang_summary = res_kandang_a.json()
+    assert kandang_summary["total_kg_pakan"] == 150.5
+

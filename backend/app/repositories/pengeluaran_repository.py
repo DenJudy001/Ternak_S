@@ -1,6 +1,6 @@
 from datetime import date
 from typing import Any, Dict, List, Optional
-from sqlalchemy import func
+from sqlalchemy import func, case
 from sqlalchemy.orm import Session, joinedload
 from app.models.pengeluaran import Pengeluaran, KategoriPengeluaran
 
@@ -98,11 +98,24 @@ class PengeluaranRepository:
         if end_date is not None:
             filters.append(Pengeluaran.tanggal <= end_date)
 
-        # 1. Total Akumulasi
-        total_query = db.query(func.coalesce(func.sum(Pengeluaran.nominal), 0))
+        # 1. Total Akumulasi Nominal & Total Kg Pakan
+        aggregate_query = db.query(
+            func.coalesce(func.sum(Pengeluaran.nominal), 0),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Pengeluaran.kategori == KategoriPengeluaran.pakan, Pengeluaran.jumlah_kg),
+                        else_=0,
+                    )
+                ),
+                0,
+            ),
+        )
         if filters:
-            total_query = total_query.filter(*filters)
-        total_nominal = float(total_query.scalar() or 0.0)
+            aggregate_query = aggregate_query.filter(*filters)
+        total_nominal, total_kg = aggregate_query.first()
+        total_nominal = float(total_nominal or 0.0)
+        total_kg_pakan = float(total_kg or 0.0)
 
         # 2. Agregasi per Kategori (GROUP BY)
         breakdown_query = db.query(
@@ -121,6 +134,7 @@ class PengeluaranRepository:
 
         return {
             "total_pengeluaran": total_nominal,
+            "total_kg_pakan": total_kg_pakan,
             "breakdown_per_kategori": breakdown_dict,
         }
 
