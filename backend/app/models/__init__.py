@@ -4,7 +4,6 @@ from app.models.mortalitas import Mortalitas
 from app.models.produksi_telur import ProduksiTelur
 from app.models.pengeluaran import Pengeluaran, KategoriPengeluaran
 from app.models.penjualan import Penjualan, SatuanJual
-from app.models.stok_telur import StokTelur
 from app.models.user import User
 
 __all__ = [
@@ -17,6 +16,5 @@ __all__ = [
     "KategoriPengeluaran",
     "Penjualan",
     "SatuanJual",
-    "StokTelur",
     "User",
 ]
