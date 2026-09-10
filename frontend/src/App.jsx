@@ -6,6 +6,7 @@ import { ProduksiTelurPage } from './pages/ProduksiTelurPage'
 import { PengeluaranPage } from './pages/PengeluaranPage'
 import { PenjualanPage } from './pages/PenjualanPage'
 import { StokTelurPage } from './pages/StokTelurPage'
+import { DashboardPage } from './pages/DashboardPage'
 import { checkServerHealth } from './services/api'
 import {
   LayoutDashboard,
@@ -20,176 +21,6 @@ import {
   ShieldCheck,
   ArrowRight,
 } from 'lucide-react'
-
-function DashboardOverview({ onNavigate }) {
-  const { user } = useAuth()
-
-  return (
-    <div>
-      {/* Welcome Banner */}
-      <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-slate-900/40 border border-emerald-500/20 backdrop-blur flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium mb-2">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Sesi Terautentikasi (JWT Token Active)</span>
-          </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">
-            Selamat Datang, {user?.username}!
-          </h2>
-          <p className="text-sm text-slate-400 mt-1">
-            Pusat kendali operasional peternakan ayam petelur SiTernak.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs font-mono text-slate-400 bg-slate-950/60 px-3 py-2 rounded-xl border border-slate-800">
-          <span>User ID: #{user?.id || 1}</span>
-          <span>•</span>
-          <span className="text-emerald-400 font-semibold">Active</span>
-        </div>
-      </div>
-
-      {/* 6 Core Modules Grid */}
-      <div className="mb-6">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-4">
-          Modul Operasional Peternakan
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {/* Kandang Module - Active & Interactive */}
-          <div
-            onClick={() => onNavigate('kandang')}
-            className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/50 transition cursor-pointer group relative overflow-hidden shadow-lg hover:shadow-emerald-500/5"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition">
-                <Home className="w-5 h-5" />
-              </div>
-              <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                T1.1 Ready
-              </span>
-            </div>
-            <h4 className="font-bold text-white text-base mb-1 group-hover:text-emerald-400 transition flex items-center justify-between">
-              <span>Manajemen Kandang</span>
-              <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-1 transition" />
-            </h4>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Setup kandang awal, pemantauan populasi ayam, dan perubahan status aktif/afkir.
-            </p>
-          </div>
-
-          {/* Produksi Telur Module - Active & Interactive */}
-          <div
-            onClick={() => onNavigate('produksi-telur')}
-            className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 transition cursor-pointer group relative overflow-hidden shadow-lg hover:shadow-amber-500/5"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-105 transition">
-                <Egg className="w-5 h-5" />
-              </div>
-              <span className="text-[10px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">
-                T2.1 Ready
-              </span>
-            </div>
-            <h4 className="font-bold text-white text-base mb-1 group-hover:text-amber-400 transition flex items-center justify-between">
-              <span>Produksi Telur</span>
-              <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 group-hover:translate-x-1 transition" />
-            </h4>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Pencatatan butir telur harian (kategori normal, retak, pecah) per kandang.
-            </p>
-          </div>
-
-          {/* Mortalitas Ayam - Active & Interactive */}
-          <div
-            onClick={() => onNavigate('kandang')}
-            className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-rose-500/50 transition cursor-pointer group relative overflow-hidden shadow-lg hover:shadow-rose-500/5"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 group-hover:scale-105 transition">
-                <TrendingDown className="w-5 h-5" />
-              </div>
-              <span className="text-[10px] font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded-full">
-                T1.2 & T1.3 Ready
-              </span>
-            </div>
-            <h4 className="font-bold text-white text-base mb-1 group-hover:text-rose-400 transition flex items-center justify-between">
-              <span>Mortalitas Ayam</span>
-              <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-rose-400 group-hover:translate-x-1 transition" />
-            </h4>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Monitoring kematian ayam harian untuk penyesuaian populasi dan analisis kesehatan.
-            </p>
-          </div>
-
-          {/* Biaya & Pengeluaran Module - Active & Interactive */}
-          <div
-            onClick={() => onNavigate('pengeluaran')}
-            className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/50 transition cursor-pointer group relative overflow-hidden shadow-lg hover:shadow-emerald-500/5"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition">
-                <Receipt className="w-5 h-5" />
-              </div>
-              <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                T3.1 Ready
-              </span>
-            </div>
-            <h4 className="font-bold text-white text-base mb-1 group-hover:text-emerald-400 transition flex items-center justify-between">
-              <span>Biaya & Pengeluaran</span>
-              <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-1 transition" />
-            </h4>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Pencatatan pembelian pakan, obat/vaksin, operasional, gaji, dan alokasi per kandang.
-            </p>
-          </div>
-
-          {/* Penjualan Telur Module - Active & Interactive */}
-          <div
-            onClick={() => onNavigate('penjualan')}
-            className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-purple-500/50 transition cursor-pointer group relative overflow-hidden shadow-lg hover:shadow-purple-500/5"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 group-hover:scale-105 transition">
-                <ShoppingCart className="w-5 h-5" />
-              </div>
-              <span className="text-[10px] font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded-full">
-                T3.2 Ready
-              </span>
-            </div>
-            <h4 className="font-bold text-white text-base mb-1 group-hover:text-purple-400 transition flex items-center justify-between">
-              <span>Penjualan Telur</span>
-              <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-purple-400 group-hover:translate-x-1 transition" />
-            </h4>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Pencatatan transaksi penjualan telur (butir, kg, tray) dan konversi butir fisik keluar.
-            </p>
-          </div>
-
-          {/* Stok & Mutasi Telur Module - Active & Interactive */}
-          <div
-            onClick={() => onNavigate('stok-telur')}
-            className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-cyan-500/50 transition cursor-pointer group relative overflow-hidden shadow-lg hover:shadow-cyan-500/5"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition">
-                <Boxes className="w-5 h-5" />
-              </div>
-              <span className="text-[10px] font-semibold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded-full">
-                T3.3 Ready
-              </span>
-            </div>
-            <h4 className="font-bold text-white text-base mb-1 group-hover:text-cyan-400 transition flex items-center justify-between">
-              <span>Stok & Mutasi Telur</span>
-              <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-1 transition" />
-            </h4>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Kalkulasi saldo siap jual (on-the-fly), konversi tray/kg, dan buku mutasi aliran telur.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function MainLayout() {
   const { user, logout } = useAuth()
@@ -350,7 +181,7 @@ function MainLayout() {
 
       {/* Main Content View */}
       <main className="max-w-6xl mx-auto px-4 py-8 flex-1 w-full">
-        {activeTab === 'dashboard' && <DashboardOverview onNavigate={setActiveTab} />}
+        {activeTab === 'dashboard' && <DashboardPage onNavigate={setActiveTab} />}
         {activeTab === 'kandang' && <KandangPage />}
         {activeTab === 'produksi-telur' && <ProduksiTelurPage />}
         {activeTab === 'pengeluaran' && <PengeluaranPage />}
