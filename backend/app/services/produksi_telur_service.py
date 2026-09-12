@@ -7,11 +7,10 @@ from sqlalchemy.orm import Session
 from app.models.kandang import StatusKandang
 from app.models.produksi_telur import ProduksiTelur
 from app.repositories.kandang_repository import KandangRepository
-from app.repositories.mortalitas_repository import MortalitasRepository
 from app.repositories.produksi_telur_repository import ProduksiTelurRepository
 from app.schemas.produksi_telur import ProduksiTelurCreate, ProduksiTelurUpdate
+from app.services.kandang_service import KandangService
 from app.services.population_calculator import (
-    build_mortality_prefix_sum,
     get_effective_population,
     calculate_hdp as pure_calculate_hdp,
 )
@@ -36,28 +35,10 @@ class ProduksiTelurService:
         kandang_ids: List[int]
     ) -> Dict[int, List[Tuple[date, int]]]:
         """
-        Imperative Shell Helper:
-        Mengambil seluruh data mortalitas untuk sekumpulan ID kandang dalam 1 kali batch query (Anti N+1),
-        kemudian mempartisi data per kandang dan membangun prefix sum deret kumulatif kematian.
+        Imperative Shell Helper (Delegasi ke KandangService):
+        Mendelegasikan batch query mortalitas dan pembentukan prefix sum ke KandangService.
         """
-        if not kandang_ids:
-            return {}
-
-        unique_ids = list(set(kandang_ids))
-        mortalitas_records = MortalitasRepository.get_mortalitas_by_kandang_ids(db, unique_ids)
-
-        # 1. Partisi in-memory per kandang_id (mencegah data leakage antar kandang)
-        partitioned: Dict[int, List[Tuple[date, int]]] = {kid: [] for kid in unique_ids}
-        for m in mortalitas_records:
-            if m.kandang_id in partitioned:
-                partitioned[m.kandang_id].append((m.tanggal, m.jumlah))
-
-        # 2. Bangun prefix sum map per kandang
-        prefix_sums: Dict[int, List[Tuple[date, int]]] = {}
-        for kid, mort_list in partitioned.items():
-            prefix_sums[kid] = build_mortality_prefix_sum(mort_list)
-
-        return prefix_sums
+        return KandangService.get_kandang_prefix_sums(db, kandang_ids)
 
     @staticmethod
     def create_produksi(db: Session, data: ProduksiTelurCreate) -> ProduksiTelur:

@@ -15,14 +15,13 @@ from sqlalchemy.orm import Session
 from app.models.kandang import StatusKandang
 from app.repositories.dashboard_repository import DashboardRepository
 from app.repositories.kandang_repository import KandangRepository
-from app.repositories.mortalitas_repository import MortalitasRepository
 from app.services.dashboard_calculator import (
     aggregate_farm_hdp,
     calculate_pnl,
     evaluate_hdp_status,
 )
+from app.services.kandang_service import KandangService
 from app.services.population_calculator import (
-    build_mortality_prefix_sum,
     get_effective_population,
 )
 from app.services.stok_service import StokService
@@ -54,19 +53,8 @@ class DashboardService:
 
         total_populasi_efektif = 0
         if kandang_ids:
-            # Batch query mortalitas untuk seluruh kandang aktif (Anti N+1)
-            mortalitas_records = MortalitasRepository.get_mortalitas_by_kandang_ids(
-                db, kandang_ids
-            )
-            partitioned: Dict[int, List[Any]] = {kid: [] for kid in kandang_ids}
-            for m in mortalitas_records:
-                if m.kandang_id in partitioned:
-                    partitioned[m.kandang_id].append((m.tanggal, m.jumlah))
-
-            prefix_sums = {
-                kid: build_mortality_prefix_sum(m_list)
-                for kid, m_list in partitioned.items()
-            }
+            # Batch query mortalitas & prefix sum terpusat via KandangService (Anti N+1)
+            prefix_sums = KandangService.get_kandang_prefix_sums(db, kandang_ids)
 
             # Hitung populasi efektif seluruh kandang aktif pada ref_date
             for k in active_kandangs:

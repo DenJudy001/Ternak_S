@@ -1,4 +1,5 @@
-from typing import List, Optional
+from datetime import date
+from typing import List, Optional, Dict, Tuple
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -6,6 +7,7 @@ from app.models.kandang import Kandang, StatusKandang
 from app.repositories.kandang_repository import KandangRepository
 from app.repositories.mortalitas_repository import MortalitasRepository
 from app.schemas.kandang import KandangCreate, KandangUpdate
+from app.services.population_calculator import build_mortality_prefix_sum
 
 
 class KandangService:
@@ -97,3 +99,31 @@ class KandangService:
             update_dict["jumlah_saat_ini"] = new_jumlah_awal - total_mati
 
         return KandangRepository.update(db, db_kandang, update_dict)
+
+    @staticmethod
+    def get_kandang_prefix_sums(
+        db: Session,
+        kandang_ids: List[int],
+    ) -> Dict[int, List[Tuple[date, int]]]:
+        """
+        Mengambil seluruh data mortalitas untuk sekumpulan ID kandang dalam 1 kali batch query (Anti N+1),
+        kemudian mempartisi data per kandang dan membangun prefix sum deret kumulatif kematian.
+        Dapat digunakan bersama oleh modul Produksi Telur dan Dashboard.
+        """
+        if not kandang_ids:
+            return {}
+
+        unique_ids = list(set(kandang_ids))
+        mortalitas_records = MortalitasRepository.get_mortalitas_by_kandang_ids(db, unique_ids)
+
+        # 1. Partisi in-memory per kandang_id (mencegah data leakage antar kandang)
+        partitioned: Dict[int, List[Tuple[date, int]]] = {kid: [] for kid in unique_ids}
+        for m in mortalitas_records:
+            if m.kandang_id in partitioned:
+                partitioned[m.kandang_id].append((m.tanggal, m.jumlah))
+
+        # 2. Bangun prefix sum map per kandang
+        return {
+            kid: build_mortality_prefix_sum(m_list)
+            for kid, m_list in partitioned.items()
+        }
