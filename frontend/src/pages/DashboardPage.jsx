@@ -31,6 +31,7 @@ import {
   Info,
   Clock,
   ShieldCheck,
+  BarChart3,
 } from 'lucide-react'
 import { getDashboardSummary } from '../services/dashboardService'
 import { useAuth } from '../context/AuthContext'
@@ -213,6 +214,13 @@ export function DashboardPage({ onNavigate }) {
 
           {/* Quick Action Shortcuts */}
           <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => onNavigate && onNavigate('analitik')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-xs font-semibold transition"
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Analitik</span>
+            </button>
             <button
               onClick={() => onNavigate('produksi-telur')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-semibold transition"
