@@ -7,6 +7,7 @@ import { PengeluaranPage } from './pages/PengeluaranPage'
 import { PenjualanPage } from './pages/PenjualanPage'
 import { StokTelurPage } from './pages/StokTelurPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { AnalyticsPage } from './pages/AnalyticsPage'
 import { checkServerHealth } from './services/api'
 import {
   LayoutDashboard,
@@ -16,6 +17,7 @@ import {
   Receipt,
   ShoppingCart,
   Boxes,
+  BarChart3,
   LogOut,
   User as UserIcon,
   ShieldCheck,
@@ -74,6 +76,18 @@ function MainLayout() {
               >
                 <LayoutDashboard className="w-3.5 h-3.5" />
                 <span>Dashboard</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('analitik')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium ${
+                  activeTab === 'analitik'
+                    ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-semibold'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                <span>Analitik</span>
               </button>
 
               <button
@@ -182,6 +196,7 @@ function MainLayout() {
       {/* Main Content View */}
       <main className="max-w-6xl mx-auto px-4 py-8 flex-1 w-full">
         {activeTab === 'dashboard' && <DashboardPage onNavigate={setActiveTab} />}
+        {activeTab === 'analitik' && <AnalyticsPage />}
         {activeTab === 'kandang' && <KandangPage />}
         {activeTab === 'produksi-telur' && <ProduksiTelurPage />}
         {activeTab === 'pengeluaran' && <PengeluaranPage />}
