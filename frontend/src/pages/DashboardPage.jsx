@@ -32,6 +32,7 @@ import {
   Clock,
   ShieldCheck,
   BarChart3,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { getDashboardSummary } from '../services/dashboardService'
 import { useAuth } from '../context/AuthContext'
@@ -126,7 +127,7 @@ function CustomChartTooltip({ active, payload, label }) {
   return null
 }
 
-export function DashboardPage({ onNavigate }) {
+export function DashboardPage({ onNavigate, onOpenExportModal }) {
   const { user } = useAuth()
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -214,6 +215,15 @@ export function DashboardPage({ onNavigate }) {
 
           {/* Quick Action Shortcuts */}
           <div className="flex items-center gap-1.5">
+            {onOpenExportModal && (
+              <button
+                onClick={onOpenExportModal}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs font-semibold transition cursor-pointer"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Ekspor</span>
+              </button>
+            )}
             <button
               onClick={() => onNavigate && onNavigate('analitik')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-xs font-semibold transition"
