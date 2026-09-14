@@ -11,6 +11,7 @@ from app.routers.penjualan import router as penjualan_router
 from app.routers.stok_telur import router as stok_telur_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.analytics import router as analytics_router
+from app.routers.report import router as report_router
 import app.models  # Ensure all SQLAlchemy models are registered on Base.metadata
 
 app = FastAPI(
@@ -41,6 +42,7 @@ app.include_router(penjualan_router, prefix=settings.API_V1_STR)
 app.include_router(stok_telur_router, prefix=settings.API_V1_STR)
 app.include_router(dashboard_router, prefix=settings.API_V1_STR)
 app.include_router(analytics_router, prefix=settings.API_V1_STR)
+app.include_router(report_router, prefix=settings.API_V1_STR)
 
 
 @app.get("/", tags=["Root"])

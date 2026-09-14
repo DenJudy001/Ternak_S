@@ -8,6 +8,7 @@ import { PenjualanPage } from './pages/PenjualanPage'
 import { StokTelurPage } from './pages/StokTelurPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
+import { ExportReportModal } from './components/ExportReportModal'
 import { checkServerHealth } from './services/api'
 import {
   LayoutDashboard,
@@ -18,6 +19,7 @@ import {
   ShoppingCart,
   Boxes,
   BarChart3,
+  FileSpreadsheet,
   LogOut,
   User as UserIcon,
   ShieldCheck,
@@ -28,6 +30,7 @@ function MainLayout() {
   const { user, logout } = useAuth()
   const [activeTab, setActiveTab] = useState('dashboard') // 'dashboard' | 'kandang' | 'produksi-telur'
   const [serverStatus, setServerStatus] = useState('checking')
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
 
   useEffect(() => {
     checkServerHealth()
@@ -153,6 +156,16 @@ function MainLayout() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Ekspor Laporan Bulanan Button */}
+            <button
+              onClick={() => setIsExportModalOpen(true)}
+              title="Ekspor Laporan Bulanan (Excel & PDF)"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs font-semibold transition cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Ekspor Laporan</span>
+            </button>
+
             {/* Backend status badge */}
             <div className="hidden sm:flex items-center space-x-2 text-xs font-mono bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-full">
               <span
@@ -195,7 +208,12 @@ function MainLayout() {
 
       {/* Main Content View */}
       <main className="max-w-6xl mx-auto px-4 py-8 flex-1 w-full">
-        {activeTab === 'dashboard' && <DashboardPage onNavigate={setActiveTab} />}
+        {activeTab === 'dashboard' && (
+          <DashboardPage
+            onNavigate={setActiveTab}
+            onOpenExportModal={() => setIsExportModalOpen(true)}
+          />
+        )}
         {activeTab === 'analitik' && <AnalyticsPage />}
         {activeTab === 'kandang' && <KandangPage />}
         {activeTab === 'produksi-telur' && <ProduksiTelurPage />}
@@ -203,6 +221,12 @@ function MainLayout() {
         {activeTab === 'penjualan' && <PenjualanPage />}
         {activeTab === 'stok-telur' && <StokTelurPage />}
       </main>
+
+      {/* Modal Ekspor Laporan Bulanan */}
+      <ExportReportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+      />
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
