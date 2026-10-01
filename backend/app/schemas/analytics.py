@@ -5,7 +5,7 @@ Pydantic models untuk validasi dan serialisasi respons analitik performa peterna
 """
 
 from datetime import date
-from typing import List, Optional
+from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -26,37 +26,5 @@ class FCRAnalyticsResponse(BaseModel):
     )
     benchmark_standar: str = Field(..., description="Rentang acuan FCR standar industri (2.10 - 2.35)")
     keterangan: str = Field(..., description="Catatan rekomendasi kontekstual berdasarkan capaian FCR")
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class DailyTrendPoint(BaseModel):
-    """
-    Schema data point harian pada grafik tren produksi 30 hari kontinu.
-    """
-    tanggal: date = Field(..., description="Tanggal kalender")
-    butir_normal: int = Field(..., description="Jumlah butir telur normal")
-    butir_retak: int = Field(..., description="Jumlah butir telur retak")
-    butir_pecah: int = Field(..., description="Jumlah butir telur pecah")
-    total_butir: int = Field(..., description="Total panen seluruh butir (normal + retak + pecah)")
-    populasi_aktif: int = Field(..., description="Populasi ayam hidup efektif pada tanggal ini")
-    hdp_persen: float = Field(..., description="Persentase Hen-Day Production (%)")
-    is_recorded: bool = Field(..., description="Flag apakah ada catatan panen riil pada tanggal ini")
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class ProductionTrendResponse(BaseModel):
-    """
-    Schema respons grafik tren produksi 30 hari kontinu beserta metrik ringkasannya.
-    """
-    start_date: date = Field(..., description="Tanggal awal deret 30 hari")
-    end_date: date = Field(..., description="Tanggal akhir deret 30 hari")
-    kandang_id: Optional[int] = Field(None, description="ID kandang spesifik atau null jika seluruh peternakan")
-    rata_rata_hdp: float = Field(..., description="Rata-rata persentase HDP dari hari-hari yang tercatat panen (%)")
-    total_butir_normal_30d: int = Field(..., description="Total akumulasi telur normal selama rentang waktu 30 hari")
-    peak_hdp_persen: float = Field(..., description="Capaian rekor persentase HDP tertinggi pada periode ini (%)")
-    peak_hdp_tanggal: Optional[date] = Field(None, description="Tanggal saat rekor HDP tertinggi tercapai")
-    points: List[DailyTrendPoint] = Field(default_factory=list, description="Deret 30 titik kalender berurutan ASC")
 
     model_config = ConfigDict(from_attributes=True)

@@ -133,12 +133,13 @@ export function DashboardPage({ onNavigate, onOpenExportModal }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedDate, setSelectedDate] = useState('')
+  const [trendDays, setTrendDays] = useState(7)
 
-  const fetchSummary = async (targetDate) => {
+  const fetchSummary = async (targetDate, days = trendDays) => {
     setLoading(true)
     setError('')
     try {
-      const data = await getDashboardSummary(targetDate || undefined)
+      const data = await getDashboardSummary(targetDate || undefined, days)
       setSummary(data)
     } catch (err) {
       console.error('Fetch dashboard summary error:', err)
@@ -149,8 +150,8 @@ export function DashboardPage({ onNavigate, onOpenExportModal }) {
   }
 
   useEffect(() => {
-    fetchSummary(selectedDate)
-  }, [selectedDate])
+    fetchSummary(selectedDate, trendDays)
+  }, [selectedDate, trendDays])
 
   const handleDateChange = (e) => {
     setSelectedDate(e.target.value)
@@ -503,28 +504,52 @@ export function DashboardPage({ onNavigate, onOpenExportModal }) {
         </div>
       </div>
 
-      {/* 3. Mini Trend Chart: Perbandingan Produksi vs Penjualan (7 Hari Terakhir) */}
+      {/* 3. Mini Trend Chart: Perbandingan Produksi vs Penjualan (Fleksibel n-Hari) */}
       <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div>
             <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-emerald-400" />
-              Tren Produksi Telur vs Penjualan (7 Hari Terakhir)
+              Tren Produksi Telur vs Penjualan ({trendDays} Hari Terakhir)
             </h3>
             <p className="text-xs text-slate-400">
               Perbandingan kurva panen normal harian (bar) terhadap volume telur terjual (line).
             </p>
           </div>
 
-          <div className="flex items-center gap-3 text-xs">
-            <span className="inline-flex items-center gap-1.5 text-amber-400 font-medium">
-              <span className="w-3 h-3 rounded-sm bg-amber-500/80" />
-              Panen Normal
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-purple-400 font-medium">
-              <span className="w-3 h-1 bg-purple-500 rounded-full" />
-              Penjualan
-            </span>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Periode Toggle Pills */}
+            <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+              {[
+                { days: 7, label: '7 Hari' },
+                { days: 14, label: '14 Hari' },
+                { days: 30, label: '30 Hari' },
+              ].map((p) => (
+                <button
+                  key={p.days}
+                  onClick={() => setTrendDays(p.days)}
+                  className={`px-3 py-1 rounded-lg font-medium transition ${
+                    trendDays === p.days
+                      ? 'bg-emerald-500 text-white font-bold shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center gap-3 text-xs pl-1">
+              <span className="inline-flex items-center gap-1.5 text-amber-400 font-medium">
+                <span className="w-3 h-3 rounded-sm bg-amber-500/80" />
+                Panen Normal
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-purple-400 font-medium">
+                <span className="w-3 h-1 bg-purple-500 rounded-full" />
+                Penjualan
+              </span>
+            </div>
           </div>
         </div>
 

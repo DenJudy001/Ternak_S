@@ -34,15 +34,20 @@ class DashboardService:
 
     @staticmethod
     def get_dashboard_summary(
-        db: Session, target_date: Optional[date] = None
+        db: Session,
+        target_date: Optional[date] = None,
+        trend_days: int = 7,
     ) -> Dict[str, Any]:
         """
         Menyusun data ringkasan eksekutif terpadu untuk dashboard:
         1. HDP Hari Ini (atau data panen terakhir jika hari ini belum tercatat)
         2. Laba / Rugi Bulan Ini (Month-to-Date / MTD)
         3. Saldo Stok Telur Gudang Siap Jual
-        4. Deret Waktu Tren 7 Hari Terakhir (Produksi vs Penjualan)
+        4. Deret Waktu Tren Produksi vs Penjualan (Fleksibel n-Hari Terakhir)
         """
+        if not trend_days or trend_days <= 0:
+            trend_days = 7
+
         ref_date = target_date or date.today()
 
         # -------------------------------------------------------------
@@ -141,10 +146,10 @@ class DashboardService:
         }
 
         # -------------------------------------------------------------
-        # 4. METRIK 4: TREN 7 HARI TERAKHIR (PRODUKSI VS PENJUALAN)
+        # 4. METRIK 4: TREN PRODUKSI VS PENJUALAN (FLEKSIBEL N-HARI)
         # -------------------------------------------------------------
         trend_end = ref_date
-        trend_start = ref_date - timedelta(days=6)
+        trend_start = ref_date - timedelta(days=trend_days - 1)
         trend_data = DashboardRepository.get_recent_production_and_sales_trend(
             db, start_date=trend_start, end_date=trend_end
         )

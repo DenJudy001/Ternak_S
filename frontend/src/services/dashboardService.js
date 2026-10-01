@@ -4,13 +4,17 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 
 /**
  * Mengambil ringkasan eksekutif dashboard peternakan (API Aggregator).
- * Mengembalikan data HDP hari ini, Laba/Rugi MTD, Stok Telur Gudang, dan Tren 7 hari.
+ * Mengembalikan data HDP hari ini, Laba/Rugi MTD, Stok Telur Gudang, dan Tren n-hari.
  * @param {string} [targetDate] - Tanggal target evaluasi (YYYY-MM-DD), opsional.
+ * @param {number} [trendDays=7] - Rentang hari tren (default: 7).
  */
-export async function getDashboardSummary(targetDate) {
+export async function getDashboardSummary(targetDate, trendDays = 7) {
   const query = new URLSearchParams()
   if (targetDate) {
     query.append('target_date', targetDate)
+  }
+  if (trendDays) {
+    query.append('trend_days', trendDays)
   }
 
   const queryString = query.toString() ? `?${query.toString()}` : ''
