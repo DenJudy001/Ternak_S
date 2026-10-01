@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   Wheat,
   Egg,
@@ -12,58 +12,55 @@ import { getFCRAnalytics } from '../services/analyticsService'
 import { getKandangList } from '../services/kandangService'
 
 // Helper Universal Format Tanggal
-function formatLocalDate(d = new Date()) {
+export function formatLocalDate(d = new Date()) {
   const year = d.getFullYear()
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
 
+// Helper kalkulasi tanggal preset FCR
+export function calculatePresetDates(preset) {
+  const today = new Date()
+  const end = formatLocalDate(today)
+  if (preset === '7days') {
+    const past7 = new Date()
+    past7.setDate(today.getDate() - 6)
+    return { start: formatLocalDate(past7), end }
+  } else if (preset === '30days') {
+    const past30 = new Date()
+    past30.setDate(today.getDate() - 29)
+    return { start: formatLocalDate(past30), end }
+  } else if (preset === 'this_month') {
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    return { start: formatLocalDate(firstDay), end: formatLocalDate(lastDay) }
+  }
+  return { start: '', end: '' }
+}
+
 export function AnalyticsPage() {
+  const defaultDates = useMemo(() => calculatePresetDates('30days'), [])
   const [kandangList, setKandangList] = useState([])
 
-  // FCR State
+  // FCR State - Diinisialisasi sinkron dengan default 30 hari (anti desync on mount)
   const [fcrPreset, setFcrPreset] = useState('30days')
-  const [fcrStartDate, setFcrStartDate] = useState('')
-  const [fcrEndDate, setFcrEndDate] = useState('')
+  const [fcrStartDate, setFcrStartDate] = useState(defaultDates.start)
+  const [fcrEndDate, setFcrEndDate] = useState(defaultDates.end)
   const [fcrKandangId, setFcrKandangId] = useState('')
   const [fcrData, setFcrData] = useState(null)
   const [fcrLoading, setFcrLoading] = useState(true)
   const [fcrError, setFcrError] = useState('')
-
-  // Helper kalkulasi tanggal preset FCR
-  const calculatePresetDates = (preset) => {
-    const today = new Date()
-    const end = formatLocalDate(today)
-    if (preset === '7days') {
-      const past7 = new Date()
-      past7.setDate(today.getDate() - 6)
-      return { start: formatLocalDate(past7), end }
-    } else if (preset === '30days') {
-      const past30 = new Date()
-      past30.setDate(today.getDate() - 29)
-      return { start: formatLocalDate(past30), end }
-    } else if (preset === 'this_month') {
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
-      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-      return { start: formatLocalDate(firstDay), end: formatLocalDate(lastDay) }
-    }
-    return { start: '', end: '' }
-  }
 
   // Muat daftar kandang awal
   useEffect(() => {
     getKandangList()
       .then((data) => setKandangList(data || []))
       .catch((err) => console.error('Failed to fetch kandang:', err))
-
-    const { start, end } = calculatePresetDates('30days')
-    setFcrStartDate(start)
-    setFcrEndDate(end)
   }, [])
 
   // Fetch FCR
-  const fetchFCR = async () => {
+  const fetchFCR = useCallback(async () => {
     if (!fcrStartDate || !fcrEndDate) return
     setFcrLoading(true)
     setFcrError('')
@@ -81,10 +78,41 @@ export function AnalyticsPage() {
     } finally {
       setFcrLoading(false)
     }
-  }
+  }, [fcrStartDate, fcrEndDate, fcrKandangId])
 
   useEffect(() => {
-    fetchFCR()
+    let isCurrent = true
+
+    if (!fcrStartDate || !fcrEndDate) return
+
+    setFcrLoading(true)
+    setFcrError('')
+
+    const params = {
+      start_date: fcrStartDate,
+      end_date: fcrEndDate,
+    }
+    if (fcrKandangId) params.kandang_id = fcrKandangId
+
+    getFCRAnalytics(params)
+      .then((data) => {
+        if (!isCurrent) return
+        setFcrData(data)
+      })
+      .catch((err) => {
+        if (!isCurrent) return
+        console.error('Fetch FCR error:', err)
+        setFcrError(err.message || 'Gagal memuat analitik FCR.')
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setFcrLoading(false)
+        }
+      })
+
+    return () => {
+      isCurrent = false
+    }
   }, [fcrStartDate, fcrEndDate, fcrKandangId])
 
   const handlePresetChange = (preset) => {

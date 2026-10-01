@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { getKandangList } from '../services/kandangService'
 import {
   createProduksiTelur,
@@ -28,7 +28,39 @@ import {
   TrendingUp,
 } from 'lucide-react'
 
+// Helper universal untuk format tanggal lokal YYYY-MM-DD
+export function formatLocalDate(d = new Date()) {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// Helper date formatter for presets
+export function calculatePresetDates(preset) {
+  const today = new Date()
+
+  if (preset === 'today') {
+    const todayStr = formatLocalDate(today)
+    return { start: todayStr, end: todayStr }
+  } else if (preset === '7days') {
+    const past7 = new Date()
+    past7.setDate(today.getDate() - 6)
+    return { start: formatLocalDate(past7), end: formatLocalDate(today) }
+  } else if (preset === '30days') {
+    const past30 = new Date()
+    past30.setDate(today.getDate() - 29)
+    return { start: formatLocalDate(past30), end: formatLocalDate(today) }
+  } else if (preset === 'this_month') {
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    return { start: formatLocalDate(firstDay), end: formatLocalDate(lastDay) }
+  }
+  return { start: '', end: '' }
+}
+
 export function ProduksiTelurPage() {
+  const defaultDates = useMemo(() => calculatePresetDates('7days'), [])
   const [produksiList, setProduksiList] = useState([])
   const [analyticsData, setAnalyticsData] = useState(null)
   const [kandangList, setKandangList] = useState([])
@@ -36,11 +68,11 @@ export function ProduksiTelurPage() {
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
 
-  // Filter States
+  // Filter States - Diinisialisasi sinkron dengan default 7 hari terakhir (anti desync on mount)
   const [filterKandang, setFilterKandang] = useState('semua')
-  const [datePreset, setDatePreset] = useState('7days') // default 7 hari terakhir agar langsung ada chart time-series menarik
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [datePreset, setDatePreset] = useState('7days')
+  const [startDate, setStartDate] = useState(defaultDates.start)
+  const [endDate, setEndDate] = useState(defaultDates.end)
 
   // Modal States
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -50,14 +82,6 @@ export function ProduksiTelurPage() {
 
   // 409 Conflict In-Form State
   const [duplicateConflict, setDuplicateConflict] = useState(null)
-
-  // Helper universal untuk format tanggal lokal YYYY-MM-DD
-  const formatLocalDate = (d = new Date()) => {
-    const year = d.getFullYear()
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
 
   // Form Create State
   const [createForm, setCreateForm] = useState({
@@ -79,29 +103,6 @@ export function ProduksiTelurPage() {
     catatan: '',
   })
 
-  // Helper date formatter for presets
-  const calculatePresetDates = (preset) => {
-    const today = new Date()
-
-    if (preset === 'today') {
-      const todayStr = formatLocalDate(today)
-      return { start: todayStr, end: todayStr }
-    } else if (preset === '7days') {
-      const past7 = new Date()
-      past7.setDate(today.getDate() - 6)
-      return { start: formatLocalDate(past7), end: formatLocalDate(today) }
-    } else if (preset === '30days') {
-      const past30 = new Date()
-      past30.setDate(today.getDate() - 29)
-      return { start: formatLocalDate(past30), end: formatLocalDate(today) }
-    } else if (preset === 'this_month') {
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
-      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-      return { start: formatLocalDate(firstDay), end: formatLocalDate(lastDay) }
-    }
-    return { start: '', end: '' }
-  }
-
   // Handle preset change
   const handlePresetChange = (preset) => {
     setDatePreset(preset)
@@ -115,13 +116,6 @@ export function ProduksiTelurPage() {
     }
   }
 
-  // Initialize default 7 days preset on initial load
-  useEffect(() => {
-    const { start, end } = calculatePresetDates('7days')
-    setStartDate(start)
-    setEndDate(end)
-  }, [])
-
   // Load Kandang List once on mount
   useEffect(() => {
     getKandangList('aktif')
@@ -130,7 +124,12 @@ export function ProduksiTelurPage() {
   }, [])
 
   // Load Riwayat Produksi & Analytics with active server-side filters
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    // Guard: Jika bukan preset 'semua', jangan fetch jika tanggal belum lengkap
+    if (datePreset !== 'semua' && (!startDate || !endDate)) {
+      return
+    }
+
     setLoading(true)
     setError('')
     try {
@@ -146,23 +145,58 @@ export function ProduksiTelurPage() {
         getProduksiPerformanceAnalytics(params),
       ])
 
-      setProduksiList(historyData)
-      setAnalyticsData(analyticsRes)
+      setProduksiList(historyData || [])
+      setAnalyticsData(analyticsRes || null)
     } catch (err) {
       setError(err.message || 'Gagal memuat data dan analitik produksi telur.')
     } finally {
       setLoading(false)
     }
-  }
+  }, [filterKandang, datePreset, startDate, endDate])
 
-  // Reload when filters change
+  // Reload when filters change with anti-race-condition cleanup
   useEffect(() => {
-    if (datePreset === 'custom') {
-      if ((startDate && endDate) || (!startDate && !endDate)) {
-        loadData()
-      }
-    } else {
-      loadData()
+    let isCurrent = true
+
+    // Guard: Mencegah fetch query 'semua waktu' yang tidak diinginkan
+    if (datePreset === 'custom' && (!startDate || !endDate)) {
+      return
+    }
+    if (datePreset !== 'semua' && (!startDate || !endDate)) {
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    const params = {}
+    if (filterKandang !== 'semua') {
+      params.kandangId = filterKandang
+    }
+    if (startDate) params.startDate = startDate
+    if (endDate) params.endDate = endDate
+
+    Promise.all([
+      getRiwayatProduksi(params),
+      getProduksiPerformanceAnalytics(params),
+    ])
+      .then(([historyData, analyticsRes]) => {
+        if (!isCurrent) return
+        setProduksiList(historyData || [])
+        setAnalyticsData(analyticsRes || null)
+      })
+      .catch((err) => {
+        if (!isCurrent) return
+        setError(err.message || 'Gagal memuat data dan analitik produksi telur.')
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setLoading(false)
+        }
+      })
+
+    return () => {
+      isCurrent = false
     }
   }, [filterKandang, datePreset, startDate, endDate])
 

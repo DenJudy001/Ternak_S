@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { getKandangList } from '../services/kandangService'
 import {
   createPengeluaran,
@@ -104,7 +104,26 @@ export function formatDisplayDate(dateString) {
   }
 }
 
+// Helper tanggal preset
+export function calculatePresetDates(preset) {
+  const today = new Date()
+  if (preset === 'today') {
+    const t = formatLocalDate(today)
+    return { start: t, end: t }
+  } else if (preset === '30days') {
+    const past30 = new Date()
+    past30.setDate(today.getDate() - 29)
+    return { start: formatLocalDate(past30), end: formatLocalDate(today) }
+  } else if (preset === 'this_month') {
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    return { start: formatLocalDate(firstDay), end: formatLocalDate(lastDay) }
+  }
+  return { start: '', end: '' }
+}
+
 export function PengeluaranPage() {
+  const defaultDates = useMemo(() => calculatePresetDates('this_month'), [])
   const [pengeluaranList, setPengeluaranList] = useState([])
   const [summaryData, setSummaryData] = useState({ total_pengeluaran: 0, breakdown_per_kategori: {} })
   const [kandangList, setKandangList] = useState([])
@@ -112,12 +131,12 @@ export function PengeluaranPage() {
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
 
-  // Filter states
+  // Filter states - Diinisialisasi sinkron dengan default bulan ini (anti desync on mount)
   const [filterKategori, setFilterKategori] = useState('semua')
   const [filterAlokasi, setFilterAlokasi] = useState('semua') // 'semua' | '0' (umum) | kandang_id
   const [datePreset, setDatePreset] = useState('this_month') // 'all' | 'today' | 'this_month' | '30days' | 'custom'
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [startDate, setStartDate] = useState(defaultDates.start)
+  const [endDate, setEndDate] = useState(defaultDates.end)
 
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -146,28 +165,13 @@ export function PengeluaranPage() {
     kandang_id: '',
   })
 
-  // Helper tanggal preset
-  const calculatePresetDates = (preset) => {
-    const today = new Date()
-    if (preset === 'today') {
-      const t = formatLocalDate(today)
-      return { start: t, end: t }
-    } else if (preset === '30days') {
-      const past30 = new Date()
-      past30.setDate(today.getDate() - 29)
-      return { start: formatLocalDate(past30), end: formatLocalDate(today) }
-    } else if (preset === 'this_month') {
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
-      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-      return { start: formatLocalDate(firstDay), end: formatLocalDate(lastDay) }
-    }
-    return { start: '', end: '' }
-  }
-
   // Handle pergantian preset tanggal
   const handlePresetChange = (preset) => {
     setDatePreset(preset)
-    if (preset !== 'custom') {
+    if (preset === 'all') {
+      setStartDate('')
+      setEndDate('')
+    } else if (preset !== 'custom') {
       const { start, end } = calculatePresetDates(preset)
       setStartDate(start)
       setEndDate(end)
@@ -185,15 +189,13 @@ export function PengeluaranPage() {
       })
   }, [])
 
-  // Inisialisasi default rentang tanggal saat mount
-  useEffect(() => {
-    const { start, end } = calculatePresetDates('this_month')
-    setStartDate(start)
-    setEndDate(end)
-  }, [])
-
   // Fetch Pengeluaran List & Summary
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    // Guard: Jika bukan preset 'all', jangan fetch jika tanggal belum lengkap
+    if (datePreset !== 'all' && (!startDate || !endDate)) {
+      return
+    }
+
     setLoading(true)
     setError('')
     try {
@@ -225,14 +227,58 @@ export function PengeluaranPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [filterKategori, filterAlokasi, startDate, endDate, datePreset])
 
   useEffect(() => {
-    // Only trigger fetch if not in custom without dates
+    let isCurrent = true
+
+    // Guard: Only trigger fetch if not in custom without dates and not in unready preset
     if (datePreset === 'custom' && (!startDate || !endDate)) {
       return
     }
-    fetchData()
+    if (datePreset !== 'all' && (!startDate || !endDate)) {
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    const params = {}
+    if (filterKategori !== 'semua') {
+      params.kategori = filterKategori
+    }
+    if (filterAlokasi !== 'semua') {
+      params.kandang_id = filterAlokasi
+    }
+    if (startDate) params.start_date = startDate
+    if (endDate) params.end_date = endDate
+
+    Promise.all([
+      getPengeluaranList({ ...params, limit: 200 }),
+      getPengeluaranSummary({
+        start_date: startDate || undefined,
+        end_date: endDate || undefined,
+        kandang_id: filterAlokasi !== 'semua' ? filterAlokasi : undefined,
+      }),
+    ])
+      .then(([listRes, summaryRes]) => {
+        if (!isCurrent) return
+        setPengeluaranList(listRes || [])
+        setSummaryData(summaryRes || { total_pengeluaran: 0, breakdown_per_kategori: {} })
+      })
+      .catch((err) => {
+        if (!isCurrent) return
+        setError(err.message || 'Gagal memuat data pengeluaran.')
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setLoading(false)
+        }
+      })
+
+    return () => {
+      isCurrent = false
+    }
   }, [filterKategori, filterAlokasi, startDate, endDate, datePreset])
 
   // Hitung KPI kategori terbesar

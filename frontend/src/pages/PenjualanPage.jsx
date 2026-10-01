@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   createPenjualan,
   getPenjualanList,
@@ -89,7 +89,26 @@ export function formatDisplayDate(dateString) {
   }
 }
 
+// Helper kalkulasi preset tanggal
+export function calculatePresetDates(preset) {
+  const today = new Date()
+  if (preset === 'today') {
+    const t = formatLocalDate(today)
+    return { start: t, end: t }
+  } else if (preset === '7days') {
+    const past7 = new Date()
+    past7.setDate(today.getDate() - 6)
+    return { start: formatLocalDate(past7), end: formatLocalDate(today) }
+  } else if (preset === 'this_month') {
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    return { start: formatLocalDate(firstDay), end: formatLocalDate(lastDay) }
+  }
+  return { start: '', end: '' }
+}
+
 export function PenjualanPage() {
+  const defaultDates = useMemo(() => calculatePresetDates('this_month'), [])
   const [penjualanList, setPenjualanList] = useState([])
   const [summaryData, setSummaryData] = useState({
     total_pendapatan: 0,
@@ -102,11 +121,11 @@ export function PenjualanPage() {
   const [successMsg, setSuccessMsg] = useState('')
   const [stokSummary, setStokSummary] = useState(null)
 
-  // Filter states
+  // Filter states - Diinisialisasi sinkron dengan default bulan ini (anti desync on mount)
   const [filterSatuan, setFilterSatuan] = useState('semua')
   const [datePreset, setDatePreset] = useState('this_month')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [startDate, setStartDate] = useState(defaultDates.start)
+  const [endDate, setEndDate] = useState(defaultDates.end)
   const [searchPembeli, setSearchPembeli] = useState('')
 
   // Modal states
@@ -136,42 +155,25 @@ export function PenjualanPage() {
     jumlah_butir_manual: '',
   })
 
-  // Helper kalkulasi preset tanggal
-  const calculatePresetDates = (preset) => {
-    const today = new Date()
-    if (preset === 'today') {
-      const t = formatLocalDate(today)
-      return { start: t, end: t }
-    } else if (preset === '7days') {
-      const past7 = new Date()
-      past7.setDate(today.getDate() - 6)
-      return { start: formatLocalDate(past7), end: formatLocalDate(today) }
-    } else if (preset === 'this_month') {
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
-      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-      return { start: formatLocalDate(firstDay), end: formatLocalDate(lastDay) }
-    }
-    return { start: '', end: '' }
-  }
-
   const handlePresetChange = (preset) => {
     setDatePreset(preset)
-    if (preset !== 'custom') {
+    if (preset === 'all') {
+      setStartDate('')
+      setEndDate('')
+    } else if (preset !== 'custom') {
       const { start, end } = calculatePresetDates(preset)
       setStartDate(start)
       setEndDate(end)
     }
   }
 
-  // Set default filter date
-  useEffect(() => {
-    const { start, end } = calculatePresetDates('this_month')
-    setStartDate(start)
-    setEndDate(end)
-  }, [])
-
   // Fetch Penjualan List & Summary
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    // Guard: Jika bukan preset 'all', jangan fetch jika tanggal belum lengkap
+    if (datePreset !== 'all' && (!startDate || !endDate)) {
+      return
+    }
+
     setLoading(true)
     setError('')
     try {
@@ -204,13 +206,59 @@ export function PenjualanPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [filterSatuan, startDate, endDate, datePreset, searchPembeli])
 
   useEffect(() => {
+    let isCurrent = true
+
     if (datePreset === 'custom' && (!startDate || !endDate)) {
       return
     }
-    fetchData()
+    if (datePreset !== 'all' && (!startDate || !endDate)) {
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    const params = {}
+    if (filterSatuan !== 'semua') params.satuan_jual = filterSatuan
+    if (startDate) params.start_date = startDate
+    if (endDate) params.end_date = endDate
+    if (searchPembeli.trim()) params.search_pembeli = searchPembeli.trim()
+
+    Promise.all([
+      getPenjualanList({ ...params, limit: 200 }),
+      getPenjualanSummary({
+        start_date: startDate || undefined,
+        end_date: endDate || undefined,
+      }),
+      getStokSummary().catch(() => null),
+    ])
+      .then(([listRes, summaryRes, stokRes]) => {
+        if (!isCurrent) return
+        setPenjualanList(listRes || [])
+        setSummaryData(summaryRes || {
+          total_pendapatan: 0,
+          total_butir_terjual: 0,
+          total_transaksi: 0,
+          breakdown_per_satuan: {},
+        })
+        if (stokRes) setStokSummary(stokRes)
+      })
+      .catch((err) => {
+        if (!isCurrent) return
+        setError(err.message || 'Gagal memuat data penjualan telur.')
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setLoading(false)
+        }
+      })
+
+    return () => {
+      isCurrent = false
+    }
   }, [filterSatuan, startDate, endDate, datePreset, searchPembeli])
 
   // Live conversion calculator for Create Form
