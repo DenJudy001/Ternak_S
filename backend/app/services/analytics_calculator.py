@@ -7,8 +7,8 @@ Menyediakan fungsi deterministik untuk:
 2. Normalisasi deret waktu kalender 30 hari tanpa jeda (zero-filling date sequence).
 """
 
-from datetime import date, timedelta
-from typing import Any, Dict, List
+from datetime import date
+from typing import Any, Dict
 
 
 def calculate_fcr(
@@ -54,65 +54,3 @@ def calculate_fcr(
         "status_efisiensi": status_efisiensi,
         "benchmark_standar": "2.10 - 2.35",
     }
-
-
-def generate_continuous_30d_series(
-    start_date: date,
-    end_date: date,
-    production_map: Dict[date, Dict[str, int]],
-    population_map: Dict[date, int],
-) -> List[Dict[str, Any]]:
-    """
-    Menghasilkan deret kalender kontinu tanpa tanggal bolong (zero-filling date sequence)
-    dari start_date sampai end_date (inklusif).
-
-    Args:
-        start_date: Tanggal awal deret.
-        end_date: Tanggal akhir deret.
-        production_map: Pemetaan tanggal -> dict {"normal": int, "retak": int, "pecah": int}.
-        population_map: Pemetaan tanggal -> populasi aktif efektif (int).
-
-    Returns:
-        List of dict titik data harian berurutan tanggal ASC.
-    """
-    series: List[Dict[str, Any]] = []
-    current_date = start_date
-
-    while current_date <= end_date:
-        populasi_aktif = max(0, int(population_map.get(current_date, 0)))
-
-        if current_date in production_map:
-            prod = production_map[current_date]
-            normal = max(0, int(prod.get("normal", 0)))
-            retak = max(0, int(prod.get("retak", 0)))
-            pecah = max(0, int(prod.get("pecah", 0)))
-            total_butir = normal + retak + pecah
-
-            if populasi_aktif > 0:
-                hdp_persen = round((float(normal) / float(populasi_aktif)) * 100.0, 2)
-            else:
-                hdp_persen = 0.0
-
-            is_recorded = True
-        else:
-            normal = 0
-            retak = 0
-            pecah = 0
-            total_butir = 0
-            hdp_persen = 0.0
-            is_recorded = False
-
-        series.append({
-            "tanggal": current_date,
-            "butir_normal": normal,
-            "butir_retak": retak,
-            "butir_pecah": pecah,
-            "total_butir": total_butir,
-            "populasi_aktif": populasi_aktif,
-            "hdp_persen": hdp_persen,
-            "is_recorded": is_recorded,
-        })
-
-        current_date += timedelta(days=1)
-
-    return series

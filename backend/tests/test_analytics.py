@@ -3,10 +3,9 @@ Integration Tests for Analytics Endpoints (Ticket T4.2 & T4.3)
 
 Menguji:
 1. Endpoint GET /api/v1/analytics/fcr
-2. Endpoint GET /api/v1/analytics/production-trend
 """
 
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 import pytest
 from fastapi.testclient import TestClient
@@ -200,59 +199,3 @@ def test_get_fcr_analytics_kandang_not_found_throws_404(client):
     )
     assert res.status_code == 404
     assert "tidak ditemukan" in res.json()["detail"]
-
-
-# =====================================================================
-# 2. INTEGRATION TESTS: GET /api/v1/analytics/production-trend
-# =====================================================================
-
-def test_get_production_trend_success(client, db_session):
-    kandang = Kandang(
-        nama_kandang="Kandang Petelur 1",
-        tanggal_mulai=date(2026, 1, 1),
-        jumlah_awal=1000,
-        jumlah_saat_ini=1000,
-        status=StatusKandang.aktif,
-    )
-    db_session.add(kandang)
-    db_session.commit()
-
-    # Tambah entri panen pada 2 tanggal
-    db_session.add(ProduksiTelur(
-        kandang_id=kandang.id,
-        tanggal=date(2026, 3, 10),
-        jumlah_butir_normal=850,
-        jumlah_butir_retak=20,
-        jumlah_butir_pecah=5,
-    ))
-    db_session.add(ProduksiTelur(
-        kandang_id=kandang.id,
-        tanggal=date(2026, 3, 20),
-        jumlah_butir_normal=920,
-        jumlah_butir_retak=10,
-        jumlah_butir_pecah=5,
-    ))
-    db_session.commit()
-
-    end_d = date(2026, 3, 30)
-    response = client.get(
-        f"/api/v1/analytics/production-trend?days=30&end_date={end_d}"
-    )
-    assert response.status_code == 200
-    data = response.json()
-
-    # Validasi rentang dan jumlah titik kontinu
-    assert data["start_date"] == str(end_d - timedelta(days=29))
-    assert data["end_date"] == str(end_d)
-    assert len(data["points"]) == 30
-
-    # Validasi urutan tanggal kronologis menaik (ASC)
-    dates = [p["tanggal"] for p in data["points"]]
-    assert dates == sorted(dates)
-
-    # Validasi metrik ringkasan
-    assert data["total_butir_normal_30d"] == 850 + 920
-    assert data["peak_hdp_persen"] == 92.0
-    assert data["peak_hdp_tanggal"] == "2026-03-20"
-    # Rata-rata dari 2 hari tercatat: (85.0 + 92.0) / 2 = 88.5%
-    assert data["rata_rata_hdp"] == 88.5

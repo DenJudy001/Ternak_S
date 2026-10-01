@@ -1,144 +1,22 @@
 import React, { useState, useEffect } from 'react'
 import {
-  ResponsiveContainer,
-  ComposedChart,
-  Bar,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  CartesianGrid,
-  ReferenceLine,
-} from 'recharts'
-import {
-  Activity,
   Wheat,
   Egg,
-  TrendingUp,
   AlertCircle,
-  CheckCircle2,
-  Calendar,
   RefreshCw,
   Info,
-  Layers,
-  Sparkles,
   Award,
-  Filter,
   BarChart3,
-  Scale,
-  ArrowRight,
 } from 'lucide-react'
-import { getFCRAnalytics, getProductionTrend } from '../services/analyticsService'
+import { getFCRAnalytics } from '../services/analyticsService'
 import { getKandangList } from '../services/kandangService'
 
-// Helper Universal Format Rupiah / Tanggal
+// Helper Universal Format Tanggal
 function formatLocalDate(d = new Date()) {
   const year = d.getFullYear()
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
-}
-
-function formatDisplayDate(dateString) {
-  if (!dateString) return '-'
-  try {
-    const [y, m, d] = dateString.split('-').map(Number)
-    const dateObj = new Date(y, m - 1, d)
-    return new Intl.DateTimeFormat('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    }).format(dateObj)
-  } catch {
-    return dateString
-  }
-}
-
-function formatChartDate(dateString) {
-  if (!dateString) return ''
-  try {
-    const [y, m, d] = dateString.split('-').map(Number)
-    const dateObj = new Date(y, m - 1, d)
-    return new Intl.DateTimeFormat('id-ID', {
-      day: 'numeric',
-      month: 'short',
-    }).format(dateObj)
-  } catch {
-    return dateString
-  }
-}
-
-// Custom Tooltip Recharts untuk Grafik Tren Produksi 30 Hari
-function CustomTrendTooltip({ active, payload, label }) {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload
-    return (
-      <div className="bg-slate-900/95 border border-slate-700/80 p-3.5 rounded-2xl shadow-2xl backdrop-blur-md text-xs space-y-2 min-w-[210px]">
-        <div className="border-b border-slate-800 pb-1.5 flex items-center justify-between">
-          <span className="font-semibold text-white">{formatDisplayDate(data.tanggal)}</span>
-          <span
-            className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
-              data.is_recorded
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                : 'bg-slate-800 text-slate-400 border-slate-700'
-            }`}
-          >
-            {data.is_recorded ? 'Tercatat' : 'Belum Ada Entri'}
-          </span>
-        </div>
-
-        <div className="space-y-1 text-slate-300">
-          <div className="flex items-center justify-between">
-            <span className="text-emerald-400 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              Normal:
-            </span>
-            <span className="font-mono font-bold text-white">
-              {data.butir_normal.toLocaleString('id-ID')} butir
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-amber-400 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-amber-400" />
-              Retak:
-            </span>
-            <span className="font-mono font-bold text-white">
-              {data.butir_retak.toLocaleString('id-ID')} butir
-            </span>
-          </div>
-
-          {data.butir_pecah > 0 && (
-            <div className="flex items-center justify-between text-rose-400">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-rose-400" />
-                Pecah (Afkir):
-              </span>
-              <span className="font-mono font-bold">
-                {data.butir_pecah.toLocaleString('id-ID')} butir
-              </span>
-            </div>
-          )}
-
-          <div className="border-t border-slate-800/80 pt-1 flex items-center justify-between text-[11px]">
-            <span className="text-slate-400">Populasi Aktif:</span>
-            <span className="font-mono font-semibold text-slate-200">
-              {data.populasi_aktif.toLocaleString('id-ID')} ekor
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="text-purple-400 font-medium">HDP:</span>
-            <span className="font-mono font-bold text-purple-300">
-              {data.hdp_persen.toFixed(1)}%
-            </span>
-          </div>
-        </div>
-      </div>
-    )
-  }
-  return null
 }
 
 export function AnalyticsPage() {
@@ -152,12 +30,6 @@ export function AnalyticsPage() {
   const [fcrData, setFcrData] = useState(null)
   const [fcrLoading, setFcrLoading] = useState(true)
   const [fcrError, setFcrError] = useState('')
-
-  // 30-Day Trend State
-  const [trendKandangId, setTrendKandangId] = useState('')
-  const [trendData, setTrendData] = useState(null)
-  const [trendLoading, setTrendLoading] = useState(true)
-  const [trendError, setTrendError] = useState('')
 
   // Helper kalkulasi tanggal preset FCR
   const calculatePresetDates = (preset) => {
@@ -215,27 +87,6 @@ export function AnalyticsPage() {
     fetchFCR()
   }, [fcrStartDate, fcrEndDate, fcrKandangId])
 
-  // Fetch 30-Day Trend
-  const fetchTrend = async () => {
-    setTrendLoading(true)
-    setTrendError('')
-    try {
-      const params = { days: 30 }
-      if (trendKandangId) params.kandang_id = trendKandangId
-      const data = await getProductionTrend(params)
-      setTrendData(data)
-    } catch (err) {
-      console.error('Fetch trend error:', err)
-      setTrendError(err.message || 'Gagal memuat tren produksi.')
-    } finally {
-      setTrendLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchTrend()
-  }, [trendKandangId])
-
   const handlePresetChange = (preset) => {
     setFcrPreset(preset)
     if (preset !== 'custom') {
@@ -259,25 +110,22 @@ export function AnalyticsPage() {
             </h2>
           </div>
           <p className="text-sm text-slate-400">
-            Monitoring rasio efisiensi pakan (Feed Conversion Ratio) dan visualisasi tren panen telur 30 hari kontinu.
+            Monitoring rasio efisiensi pakan (Feed Conversion Ratio) dan perbandingan terhadap standar industri layer.
           </p>
         </div>
 
         <button
-          onClick={() => {
-            fetchFCR()
-            fetchTrend()
-          }}
-          title="Segarkan data analitik"
+          onClick={fetchFCR}
+          title="Segarkan data analitik FCR"
           className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition text-xs font-semibold self-start sm:self-auto"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${fcrLoading || trendLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 ${fcrLoading ? 'animate-spin' : ''}`} />
           <span>Refresh Analitik</span>
         </button>
       </div>
 
       {/* ============================================================== */}
-      {/* SECTION 1: KARTU ANALITIK FCR (FEED CONVERSION RATIO)          */}
+      {/* SECTION: KARTU ANALITIK FCR (FEED CONVERSION RATIO)            */}
       {/* ============================================================== */}
       <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-4 border-b border-slate-800">
@@ -473,173 +321,6 @@ export function AnalyticsPage() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* ============================================================== */}
-      {/* SECTION 2: GRAFIK TREN PRODUKSI 30 HARI KONTINU (RECHARTS)     */}
-      {/* ============================================================== */}
-      <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-800">
-          <div>
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-purple-400" />
-              <h3 className="text-lg font-bold text-white tracking-tight">
-                Tren Produksi Telur & Kurva HDP (30 Hari Terakhir)
-              </h3>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Visualisasi time-series kontinu tanpa tanggal bolong membandingkan volume panen (normal & retak) terhadap persentase HDP%.
-            </p>
-          </div>
-
-          {/* Filter Kandang untuk Grafik */}
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <span className="text-xs text-slate-400 flex items-center gap-1">
-              <Filter className="w-3.5 h-3.5" /> Kandang:
-            </span>
-            <select
-              value={trendKandangId}
-              onChange={(e) => setTrendKandangId(e.target.value)}
-              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-purple-500"
-            >
-              <option value="">Semua Kandang</option>
-              {kandangList.map((k) => (
-                <option key={k.id} value={k.id}>
-                  {k.nama_kandang}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* 3 Summary Header Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800">
-            <span className="text-slate-400 text-xs block mb-1">Rata-rata HDP 30 Hari:</span>
-            <span className="text-2xl font-black font-mono text-purple-400">
-              {trendData ? `${trendData.rata_rata_hdp.toFixed(1)}%` : '--%'}
-            </span>
-          </div>
-
-          <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800">
-            <span className="text-slate-400 text-xs block mb-1">Total Panen Normal:</span>
-            <span className="text-2xl font-black font-mono text-emerald-400">
-              {trendData ? trendData.total_butir_normal_30d.toLocaleString('id-ID') : '0'}{' '}
-              <span className="text-xs font-normal text-slate-400">butir</span>
-            </span>
-          </div>
-
-          <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800">
-            <span className="text-slate-400 text-xs block mb-1">Rekor HDP Tertinggi:</span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-black font-mono text-amber-400">
-                {trendData ? `${trendData.peak_hdp_persen.toFixed(1)}%` : '--%'}
-              </span>
-              {trendData?.peak_hdp_tanggal && (
-                <span className="text-[11px] text-slate-400">
-                  ({formatDisplayDate(trendData.peak_hdp_tanggal)})
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {trendError && (
-          <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{trendError}</span>
-          </div>
-        )}
-
-        {/* Recharts ComposedChart: Stacked Bar + Line HDP% */}
-        {trendData && trendData.points && trendData.points.length > 0 ? (
-          <div className="h-80 w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart
-                data={trendData.points}
-                margin={{ top: 15, right: 10, left: -20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.4} />
-                <XAxis
-                  dataKey="tanggal"
-                  tickFormatter={formatChartDate}
-                  stroke="#94a3b8"
-                  fontSize={11}
-                  tickLine={false}
-                />
-                {/* Sumbu Y Kiri: Volume Butir Telur */}
-                <YAxis
-                  yAxisId="left"
-                  stroke="#94a3b8"
-                  fontSize={11}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
-                {/* Sumbu Y Kanan: Persentase HDP% */}
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  domain={[0, 100]}
-                  stroke="#c084fc"
-                  fontSize={11}
-                  tickLine={false}
-                  unit="%"
-                />
-                <Tooltip content={<CustomTrendTooltip />} />
-                <Legend
-                  verticalAlign="top"
-                  align="right"
-                  wrapperStyle={{ paddingBottom: '10px', fontSize: '11px' }}
-                />
-                {/* Garis Horizontal Target HDP 85% */}
-                <ReferenceLine
-                  yAxisId="right"
-                  y={85}
-                  stroke="#f59e0b"
-                  strokeDasharray="4 4"
-                  label={{
-                    value: 'Target 85%',
-                    fill: '#f59e0b',
-                    fontSize: 10,
-                    position: 'insideTopRight',
-                  }}
-                />
-                <Bar
-                  yAxisId="left"
-                  dataKey="butir_normal"
-                  name="Telur Normal"
-                  stackId="telur"
-                  fill="#10b981"
-                  radius={[0, 0, 0, 0]}
-                  maxBarSize={28}
-                />
-                <Bar
-                  yAxisId="left"
-                  dataKey="butir_retak"
-                  name="Telur Retak"
-                  stackId="telur"
-                  fill="#f59e0b"
-                  radius={[4, 4, 0, 0]}
-                  maxBarSize={28}
-                />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="hdp_persen"
-                  name="HDP (%)"
-                  stroke="#a855f7"
-                  strokeWidth={2.5}
-                  dot={{ r: 3, fill: '#a855f7', stroke: '#1e1b4b', strokeWidth: 1 }}
-                  activeDot={{ r: 5, fill: '#c084fc', stroke: '#ffffff', strokeWidth: 2 }}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <div className="h-64 flex items-center justify-center text-xs text-slate-500 font-medium">
-            Tidak ada data tren produksi yang dapat ditampilkan.
-          </div>
-        )}
       </div>
     </div>
   )

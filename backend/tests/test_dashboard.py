@@ -181,6 +181,30 @@ def test_dashboard_summary_empty_database(client):
         assert item["butir_terjual"] == 0
 
 
+def test_dashboard_summary_flexible_trend_days(client, db_session):
+    """
+    Uji fleksibilitas rentang hari tren (trend_days=14 dan trend_days=30).
+    """
+    # 1. Uji trend_days = 14
+    res_14 = client.get("/api/v1/dashboard/summary?trend_days=14")
+    assert res_14.status_code == 200
+    tren_14 = res_14.json()["tren_7_hari"]
+    assert len(tren_14) == 14
+
+    # 2. Uji trend_days = 30
+    res_30 = client.get("/api/v1/dashboard/summary?trend_days=30")
+    assert res_30.status_code == 200
+    tren_30 = res_30.json()["tren_7_hari"]
+    assert len(tren_30) == 30
+
+    # 3. Uji validasi batas minimum dan maksimum (ge=3, le=90)
+    res_invalid_low = client.get("/api/v1/dashboard/summary?trend_days=2")
+    assert res_invalid_low.status_code == 422
+
+    res_invalid_high = client.get("/api/v1/dashboard/summary?trend_days=95")
+    assert res_invalid_high.status_code == 422
+
+
 def test_dashboard_summary_monthly_financial_isolation(client, db_session):
     """
     Uji isolasi periode bulanan: transaksi pada bulan lalu tidak boleh

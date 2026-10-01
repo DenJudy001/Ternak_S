@@ -38,7 +38,15 @@ def get_dashboard_summary(
         None,
         description="Tanggal referensi evaluasi dashboard (opsional, default: hari ini)"
     ),
+    trend_days: int = Query(
+        7,
+        ge=3,
+        le=90,
+        description="Rentang hari tren produksi vs penjualan (default: 7)"
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return DashboardService.get_dashboard_summary(db=db, target_date=target_date)
+    return DashboardService.get_dashboard_summary(
+        db=db, target_date=target_date, trend_days=trend_days
+    )
