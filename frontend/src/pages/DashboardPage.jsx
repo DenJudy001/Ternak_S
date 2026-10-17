@@ -7,7 +7,6 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   CartesianGrid,
 } from 'recharts'
 import {
@@ -18,24 +17,15 @@ import {
   AlertTriangle,
   CheckCircle2,
   Calendar,
-  RefreshCw,
   Plus,
   ArrowRight,
-  Home,
-  Egg,
-  TrendingDown,
-  Receipt,
-  ShoppingCart,
-  Layers,
-  Sparkles,
-  Info,
   Clock,
-  ShieldCheck,
-  BarChart3,
-  FileSpreadsheet,
+  X,
+  Egg,
+  ShoppingCart,
+  Receipt,
 } from 'lucide-react'
 import { getDashboardSummary } from '../services/dashboardService'
-import { useAuth } from '../context/AuthContext'
 
 // Helper Universal Format Rupiah
 function formatRupiah(amount) {
@@ -113,9 +103,8 @@ function CustomChartTooltip({ active, payload, label }) {
           <div className="border-t border-slate-800/80 pt-1 flex items-center justify-between text-[11px]">
             <span className="text-slate-400">Net Mutasi:</span>
             <span
-              className={`font-mono font-semibold ${
-                selisih >= 0 ? 'text-emerald-400' : 'text-rose-400'
-              }`}
+              className={`font-mono font-semibold ${selisih >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                }`}
             >
               {selisih >= 0 ? `+${selisih}` : selisih} butir
             </span>
@@ -127,13 +116,14 @@ function CustomChartTooltip({ active, payload, label }) {
   return null
 }
 
-export function DashboardPage({ onNavigate, onOpenExportModal }) {
-  const { user } = useAuth()
+export function DashboardPage({ onNavigate }) {
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedDate, setSelectedDate] = useState('')
   const [trendDays, setTrendDays] = useState(7)
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [isFabOpen, setIsFabOpen] = useState(false)
 
   const fetchSummary = async (targetDate, days = trendDays) => {
     setLoading(true)
@@ -163,97 +153,115 @@ export function DashboardPage({ onNavigate, onOpenExportModal }) {
 
   return (
     <div className="space-y-6">
-      {/* 1. Header Bar Dashboard: Tanggal, Status Sinkronisasi, & Quick Actions */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-slate-950 border border-slate-800 relative overflow-hidden">
+      {/* 1. Header Bar Dashboard: Tanggal, Popover Date Picker, & Desktop Quick Actions */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-slate-950 border border-slate-800 relative overflow-visible">
         <div>
-          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Live Sync API
-            </span>
-            <span className="text-xs text-slate-500 font-mono">
-              {summary ? `Ref: ${summary.tanggal_referensi}` : ''}
-            </span>
-          </div>
           <h2 className="text-2xl font-black text-white tracking-tight">
             Ringkasan Eksekutif Peternakan
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {summary
-              ? formatDisplayDateLong(summary.tanggal_referensi)
-              : 'Memuat data analitik...'}
-          </p>
+          <div className="flex items-center gap-2 mt-1 relative flex-wrap">
+            <p className="text-xs text-slate-400">
+              {summary
+                ? formatDisplayDateLong(summary.tanggal_referensi)
+                : 'Memuat data analitik...'}
+            </p>
+
+            {/* Icon Button Calendar untuk Popover Date Picker */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowDatePicker(!showDatePicker)}
+                title="Pilih tanggal evaluasi"
+                className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center ${selectedDate
+                    ? 'bg-amber-500/10 border-amber-500/40 text-amber-400 hover:bg-amber-500/20'
+                    : 'bg-slate-800/80 border-slate-700/80 text-slate-400 hover:text-white hover:border-slate-600'
+                  }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Floating Popover Date Picker */}
+              {showDatePicker && (
+                <div className="absolute left-0 top-full mt-2 z-50 p-3 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl backdrop-blur-xl min-w-[220px]">
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+                    <span className="text-xs font-semibold text-white">Pilih Tanggal</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowDatePicker(false)}
+                      className="text-slate-400 hover:text-white transition"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => {
+                      handleDateChange(e)
+                      setShowDatePicker(false)
+                    }}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                  />
+                  {selectedDate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleResetToday()
+                        setShowDatePicker(false)
+                      }}
+                      className="w-full mt-2 py-1 text-center text-xs text-emerald-400 hover:text-emerald-300 font-medium border border-emerald-500/20 rounded-lg hover:bg-emerald-500/10 transition"
+                    >
+                      Kembali ke Hari Ini
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Time-Travel Mode Badge Indicator */}
+          {selectedDate && (
+            <div className="inline-flex items-center gap-2 mt-2 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">
+              <span>
+                Melihat tanggal: <strong className="font-mono text-white">{selectedDate}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={handleResetToday}
+                className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-white font-semibold transition cursor-pointer"
+              >
+                Kembali ke Hari Ini
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Action Controls: Date Picker & Quick Entry Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-300">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={handleDateChange}
-              title="Pilih tanggal evaluasi dashboard"
-              className="bg-transparent border-none text-slate-200 text-xs focus:outline-none cursor-pointer"
-            />
-            {selectedDate && (
-              <button
-                onClick={handleResetToday}
-                className="text-[10px] text-emerald-400 hover:text-emerald-300 ml-1 font-semibold underline"
-              >
-                Hari Ini
-              </button>
-            )}
-          </div>
-
+        {/* Desktop Quick Action Buttons (hidden on mobile < md) */}
+        <div className="hidden md:flex items-center gap-2">
           <button
-            onClick={() => fetchSummary(selectedDate)}
-            title="Muat ulang data"
-            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
+            type="button"
+            onClick={() => onNavigate('produksi-telur')}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-semibold transition cursor-pointer"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
+            <Plus className="w-3.5 h-3.5" />
+            <span>Panen</span>
           </button>
-
-          {/* Quick Action Shortcuts */}
-          <div className="flex items-center gap-1.5">
-            {onOpenExportModal && (
-              <button
-                onClick={onOpenExportModal}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs font-semibold transition cursor-pointer"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Ekspor</span>
-              </button>
-            )}
-            <button
-              onClick={() => onNavigate && onNavigate('analitik')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-xs font-semibold transition"
-            >
-              <BarChart3 className="w-3.5 h-3.5" />
-              <span>Analitik</span>
-            </button>
-            <button
-              onClick={() => onNavigate('produksi-telur')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-semibold transition"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Panen</span>
-            </button>
-            <button
-              onClick={() => onNavigate('penjualan')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/30 text-xs font-semibold transition"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Penjualan</span>
-            </button>
-            <button
-              onClick={() => onNavigate('pengeluaran')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Biaya</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate('penjualan')}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/30 text-xs font-semibold transition cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Penjualan</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate('pengeluaran')}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Biaya</span>
+          </button>
         </div>
       </div>
 
@@ -284,13 +292,12 @@ export function DashboardPage({ onNavigate, onOpenExportModal }) {
               </span>
               {summary && (
                 <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${
-                    summary.hdp_hari_ini.status_performa === 'prima'
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${summary.hdp_hari_ini.status_performa === 'prima'
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                       : summary.hdp_hari_ini.status_performa === 'standar'
-                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                      : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                  }`}
+                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                        : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                    }`}
                 >
                   {summary.hdp_hari_ini.status_performa}
                 </span>
@@ -301,7 +308,7 @@ export function DashboardPage({ onNavigate, onOpenExportModal }) {
               <span className="text-4xl font-black text-white tracking-tight font-mono">
                 {summary ? `${summary.hdp_hari_ini.persentase.toFixed(1)}%` : '--%'}
               </span>
-              <span className="text-xs text-slate-400">Hen-Day Production</span>
+              <span className="text-xs text-slate-400">Produktivitas telur</span>
             </div>
 
             <p className="text-xs text-slate-400 leading-relaxed mb-3">
@@ -347,23 +354,22 @@ export function DashboardPage({ onNavigate, onOpenExportModal }) {
           )}
         </div>
 
-        {/* KPI 2: Laba / Rugi Bulan Ini (MTD) */}
+        {/* KPI 2: Laba / Rugi Bulan Ini */}
         <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 relative overflow-hidden flex flex-col justify-between shadow-lg">
           <div>
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                 <DollarSign className="w-4 h-4 text-emerald-400" />
-                Laba / Rugi Bulan Ini (MTD)
+                Laba / Rugi Bulan Ini
               </span>
               {summary && (
                 <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${
-                    summary.keuangan_bulan_ini.status === 'untung'
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${summary.keuangan_bulan_ini.status === 'untung'
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                       : summary.keuangan_bulan_ini.status === 'rugi'
-                      ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                      : 'bg-slate-500/10 text-slate-400 border-slate-500/30'
-                  }`}
+                        ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                        : 'bg-slate-500/10 text-slate-400 border-slate-500/30'
+                    }`}
                 >
                   {summary.keuangan_bulan_ini.status}
                 </span>
@@ -372,15 +378,14 @@ export function DashboardPage({ onNavigate, onOpenExportModal }) {
 
             <div className="flex items-baseline gap-2 mb-2">
               <span
-                className={`text-3xl font-black font-mono tracking-tight ${
-                  !summary
+                className={`text-3xl font-black font-mono tracking-tight ${!summary
                     ? 'text-white'
                     : summary.keuangan_bulan_ini.status === 'untung'
-                    ? 'text-emerald-400'
-                    : summary.keuangan_bulan_ini.status === 'rugi'
-                    ? 'text-rose-400'
-                    : 'text-slate-300'
-                }`}
+                      ? 'text-emerald-400'
+                      : summary.keuangan_bulan_ini.status === 'rugi'
+                        ? 'text-rose-400'
+                        : 'text-slate-300'
+                  }`}
               >
                 {summary
                   ? formatRupiah(summary.keuangan_bulan_ini.laba_rugi_bersih)
@@ -390,31 +395,30 @@ export function DashboardPage({ onNavigate, onOpenExportModal }) {
 
             <div className="flex items-center gap-2 mb-4">
               <span
-                className={`text-xs font-bold px-2 py-0.5 rounded-md ${
-                  !summary
+                className={`text-xs font-bold px-2 py-0.5 rounded-md ${!summary
                     ? 'bg-slate-800 text-slate-400'
                     : summary.keuangan_bulan_ini.margin_persen >= 0
-                    ? 'bg-emerald-500/20 text-emerald-300'
-                    : 'bg-rose-500/20 text-rose-300'
-                }`}
+                      ? 'bg-emerald-500/20 text-emerald-300'
+                      : 'bg-rose-500/20 text-rose-300'
+                  }`}
               >
                 {summary
                   ? `${summary.keuangan_bulan_ini.margin_persen >= 0 ? '+' : ''}${summary.keuangan_bulan_ini.margin_persen.toFixed(1)}% Margin`
                   : '0% Margin'}
               </span>
-              <span className="text-[11px] text-slate-400">Month-to-Date</span>
+              <span className="text-[11px] text-slate-400">Bulan ini</span>
             </div>
           </div>
 
           <div className="pt-3 border-t border-slate-800/80 grid grid-cols-2 gap-2 text-xs">
             <div>
-              <span className="text-slate-400 block text-[11px]">Penjualan (In):</span>
+              <span className="text-slate-400 block text-[11px]">Pemasukan:</span>
               <span className="font-mono font-semibold text-white">
                 {summary ? formatRupiah(summary.keuangan_bulan_ini.total_pendapatan) : 'Rp 0'}
               </span>
             </div>
             <div>
-              <span className="text-slate-400 block text-[11px]">Beban Operasional:</span>
+              <span className="text-slate-400 block text-[11px]">Pengeluaran:</span>
               <span className="font-mono font-semibold text-rose-300">
                 {summary ? formatRupiah(summary.keuangan_bulan_ini.total_pengeluaran) : 'Rp 0'}
               </span>
@@ -432,15 +436,14 @@ export function DashboardPage({ onNavigate, onOpenExportModal }) {
               </span>
               {summary && (
                 <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${
-                    summary.stok_gudang.status_gudang === 'aman'
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${summary.stok_gudang.status_gudang === 'aman'
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                       : summary.stok_gudang.status_gudang === 'tipis'
-                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                      : summary.stok_gudang.status_gudang === 'habis'
-                      ? 'bg-slate-500/10 text-slate-400 border-slate-500/30'
-                      : 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
-                  }`}
+                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                        : summary.stok_gudang.status_gudang === 'habis'
+                          ? 'bg-slate-500/10 text-slate-400 border-slate-500/30'
+                          : 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                    }`}
                 >
                   {summary.stok_gudang.status_gudang}
                 </span>
@@ -449,13 +452,12 @@ export function DashboardPage({ onNavigate, onOpenExportModal }) {
 
             <div className="flex items-baseline gap-2 mb-2">
               <span
-                className={`text-4xl font-black font-mono tracking-tight ${
-                  !summary
+                className={`text-4xl font-black font-mono tracking-tight ${!summary
                     ? 'text-white'
                     : summary.stok_gudang.is_underflow
-                    ? 'text-rose-400'
-                    : 'text-white'
-                }`}
+                      ? 'text-rose-400'
+                      : 'text-white'
+                  }`}
               >
                 {summary
                   ? summary.stok_gudang.stok_tersedia.toLocaleString('id-ID')
@@ -528,11 +530,10 @@ export function DashboardPage({ onNavigate, onOpenExportModal }) {
                 <button
                   key={p.days}
                   onClick={() => setTrendDays(p.days)}
-                  className={`px-3 py-1 rounded-lg font-medium transition ${
-                    trendDays === p.days
+                  className={`px-3 py-1 rounded-lg font-medium transition ${trendDays === p.days
                       ? 'bg-emerald-500 text-white font-bold shadow-sm'
                       : 'text-slate-400 hover:text-white'
-                  }`}
+                    }`}
                 >
                   {p.label}
                 </button>
@@ -601,126 +602,72 @@ export function DashboardPage({ onNavigate, onOpenExportModal }) {
         )}
       </div>
 
-      {/* 4. Core Operational Modules Access Grid */}
-      <div className="pt-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
-          Akses Modul Operasional
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Kandang */}
+      {/* 4. Mobile Quick Action FAB & Speed Dial (hidden on desktop >= md) */}
+      {isFabOpen && (
+        <>
+          {/* Backdrop Overlay untuk Mobile */}
           <div
-            onClick={() => onNavigate('kandang')}
-            className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-emerald-500/50 transition cursor-pointer group shadow-sm hover:shadow-emerald-500/5"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition">
-                <Home className="w-4 h-4" />
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-400 group-hover:translate-x-1 transition" />
-            </div>
-            <h4 className="font-bold text-white text-sm group-hover:text-emerald-400 transition">
-              Manajemen Kandang
-            </h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Kelola data kandang, populasi ayam, dan status aktif/afkir.
-            </p>
-          </div>
+            onClick={() => setIsFabOpen(false)}
+            className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-40 md:hidden"
+          />
 
-          {/* Produksi Telur */}
-          <div
-            onClick={() => onNavigate('produksi-telur')}
-            className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-amber-500/50 transition cursor-pointer group shadow-sm hover:shadow-amber-500/5"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-105 transition">
-                <Egg className="w-4 h-4" />
+          {/* Speed Dial Menu Items */}
+          <div className="fixed bottom-20 right-5 z-50 md:hidden flex flex-col items-end gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                setIsFabOpen(false)
+                onNavigate('produksi-telur')
+              }}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-slate-900 border border-amber-500/40 text-amber-400 shadow-xl hover:bg-slate-800 active:scale-95 transition cursor-pointer"
+            >
+              <span className="text-xs font-semibold text-slate-200">Catat Panen</span>
+              <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
+                <Egg className="w-4 h-4 text-amber-400" />
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-amber-400 group-hover:translate-x-1 transition" />
-            </div>
-            <h4 className="font-bold text-white text-sm group-hover:text-amber-400 transition">
-              Produksi Telur
-            </h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Catat panen butir normal, retak, pecah, dan evaluasi HDP%.
-            </p>
-          </div>
+            </button>
 
-          {/* Mortalitas Ayam */}
-          <div
-            onClick={() => onNavigate('kandang')}
-            className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/50 transition cursor-pointer group shadow-sm hover:shadow-rose-500/5"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 group-hover:scale-105 transition">
-                <TrendingDown className="w-4 h-4" />
+            <button
+              type="button"
+              onClick={() => {
+                setIsFabOpen(false)
+                onNavigate('penjualan')
+              }}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-slate-900 border border-purple-500/40 text-purple-400 shadow-xl hover:bg-slate-800 active:scale-95 transition cursor-pointer"
+            >
+              <span className="text-xs font-semibold text-slate-200">Catat Penjualan</span>
+              <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+                <ShoppingCart className="w-4 h-4 text-purple-400" />
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-rose-400 group-hover:translate-x-1 transition" />
-            </div>
-            <h4 className="font-bold text-white text-sm group-hover:text-rose-400 transition">
-              Mortalitas Ayam
-            </h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Monitoring kematian harian dan penyesuaian populasi efektif.
-            </p>
-          </div>
+            </button>
 
-          {/* Biaya & Pengeluaran */}
-          <div
-            onClick={() => onNavigate('pengeluaran')}
-            className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-emerald-500/50 transition cursor-pointer group shadow-sm hover:shadow-emerald-500/5"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition">
-                <Receipt className="w-4 h-4" />
+            <button
+              type="button"
+              onClick={() => {
+                setIsFabOpen(false)
+                onNavigate('pengeluaran')
+              }}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-slate-900 border border-emerald-500/40 text-emerald-400 shadow-xl hover:bg-slate-800 active:scale-95 transition cursor-pointer"
+            >
+              <span className="text-xs font-semibold text-slate-200">Catat Pengeluaran</span>
+              <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                <Receipt className="w-4 h-4 text-emerald-400" />
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-400 group-hover:translate-x-1 transition" />
-            </div>
-            <h4 className="font-bold text-white text-sm group-hover:text-emerald-400 transition">
-              Biaya Operasional
-            </h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Pencatatan pakan (kg), obat/vaksin, gaji, dan biaya operasional.
-            </p>
+            </button>
           </div>
+        </>
+      )}
 
-          {/* Penjualan Telur */}
-          <div
-            onClick={() => onNavigate('penjualan')}
-            className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-purple-500/50 transition cursor-pointer group shadow-sm hover:shadow-purple-500/5"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 group-hover:scale-105 transition">
-                <ShoppingCart className="w-4 h-4" />
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-purple-400 group-hover:translate-x-1 transition" />
-            </div>
-            <h4 className="font-bold text-white text-sm group-hover:text-purple-400 transition">
-              Penjualan Telur
-            </h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Catat transaksi jual butir/tray/kg dan mutasi fisik keluar.
-            </p>
-          </div>
-
-          {/* Stok Gudang */}
-          <div
-            onClick={() => onNavigate('stok-telur')}
-            className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/50 transition cursor-pointer group shadow-sm hover:shadow-cyan-500/5"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition">
-                <Boxes className="w-4 h-4" />
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-cyan-400 group-hover:translate-x-1 transition" />
-            </div>
-            <h4 className="font-bold text-white text-sm group-hover:text-cyan-400 transition">
-              Stok & Ledger Mutasi
-            </h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Pantau saldo on-the-fly, konversi rak/kg, dan riwayat mutasi.
-            </p>
-          </div>
-        </div>
+      {/* Floating Action Button (FAB) Mobile */}
+      <div className="fixed bottom-5 right-5 z-50 md:hidden">
+        <button
+          type="button"
+          onClick={() => setIsFabOpen(!isFabOpen)}
+          className="flex items-center gap-2 px-4 py-3 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-xs shadow-xl shadow-emerald-500/30 active:scale-95 transition cursor-pointer"
+        >
+          <Plus className={`w-4 h-4 transition-transform duration-200 ${isFabOpen ? 'rotate-45' : ''}`} />
+          <span>{isFabOpen ? 'Tutup' : 'Catat'}</span>
+        </button>
       </div>
     </div>
   )

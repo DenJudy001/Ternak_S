@@ -116,14 +116,6 @@ export function LoginPage() {
             )}
           </button>
         </form>
-
-        {/* Footer Hint */}
-        <div className="mt-8 pt-6 border-t border-slate-800 text-center text-xs text-slate-500">
-          <p>
-            Default Dev: <span className="font-mono text-slate-400">admin</span> /{' '}
-            <span className="font-mono text-slate-400">admin123</span>
-          </p>
-        </div>
       </div>
     </div>
   )
