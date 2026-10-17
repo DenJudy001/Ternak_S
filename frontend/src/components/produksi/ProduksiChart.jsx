@@ -21,7 +21,7 @@ import {
   HelpCircle,
 } from 'lucide-react'
 
-// Custom Glassmorphic Tooltip dengan Deteksi Anomali HDP > 100%
+// Custom Tooltip dengan Deteksi Anomali HDP > 100% (Light Theme)
 function CustomChartTooltip({ active, payload, label }) {
   if (active && payload && payload.length) {
     const data = payload[0].payload
@@ -36,31 +36,31 @@ function CustomChartTooltip({ active, payload, label }) {
     const isAnomaly = hdp > 100 || data.is_hdp_anomaly
 
     const hdpColor = isAnomaly
-      ? 'text-orange-400 border-orange-500/40 bg-orange-500/20 ring-1 ring-orange-500/30'
+      ? 'text-orange-700 border-orange-300 bg-orange-50 ring-1 ring-orange-400'
       : hdp >= 85
-      ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+      ? 'text-emerald-700 border-emerald-200 bg-emerald-50'
       : hdp >= 70
-      ? 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-      : 'text-rose-400 border-rose-500/30 bg-rose-500/10'
+      ? 'text-amber-700 border-amber-200 bg-amber-50'
+      : 'text-rose-700 border-rose-200 bg-rose-50'
 
     return (
-      <div className="bg-slate-900/95 border border-slate-700/80 p-3.5 rounded-2xl shadow-2xl backdrop-blur-md text-xs space-y-2 min-w-[210px]">
-        <div className="border-b border-slate-800 pb-1.5">
-          <p className="font-semibold text-white">{formattedDate}</p>
-          <p className="text-[11px] text-amber-400 font-medium">{data.nama_kandang}</p>
+      <div className="bg-white/95 border border-slate-200 p-3.5 rounded-2xl shadow-xl backdrop-blur-md text-xs space-y-2 min-w-[210px]">
+        <div className="border-b border-slate-100 pb-1.5">
+          <p className="font-bold text-content-primary">{formattedDate}</p>
+          <p className="text-[11px] text-amber-700 font-semibold">{data.nama_kandang}</p>
         </div>
 
-        <div className="space-y-1 text-slate-300">
+        <div className="space-y-1 text-content-secondary">
           <div className="flex items-center justify-between">
-            <span className="text-slate-400">Telur Normal:</span>
-            <span className="font-semibold text-emerald-400">
+            <span className="text-content-muted">Telur Normal:</span>
+            <span className="font-bold text-emerald-700">
               {data.jumlah_butir_normal.toLocaleString('id-ID')} butir
             </span>
           </div>
 
           {(data.jumlah_butir_retak > 0 || data.jumlah_butir_pecah > 0) && (
-            <div className="flex items-center justify-between text-amber-300">
-              <span className="text-slate-400">Retak / Pecah:</span>
+            <div className="flex items-center justify-between text-amber-700 font-medium">
+              <span className="text-content-muted">Retak / Pecah:</span>
               <span>
                 {(data.jumlah_butir_retak + data.jumlah_butir_pecah).toLocaleString('id-ID')} butir
               </span>
@@ -68,22 +68,22 @@ function CustomChartTooltip({ active, payload, label }) {
           )}
 
           <div className="flex items-center justify-between">
-            <span className="text-slate-400">Populasi Ayam:</span>
-            <span className="font-medium text-white">
+            <span className="text-content-muted">Populasi Ayam:</span>
+            <span className="font-medium text-content-primary">
               {data.populasi_ayam.toLocaleString('id-ID')} ekor
             </span>
           </div>
 
-          <div className="pt-1.5 border-t border-slate-800 flex items-center justify-between">
-            <span className="text-slate-400 font-medium">Hen Day Production:</span>
+          <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-content-muted font-medium">Hen Day Production:</span>
             <span className={`px-2 py-0.5 rounded-full border font-bold text-xs ${hdpColor}`}>
               {hdp}%
             </span>
           </div>
 
           {isAnomaly && (
-            <div className="pt-1 flex items-start gap-1.5 text-[11px] text-orange-300 font-medium leading-tight bg-orange-500/10 p-1.5 rounded-lg border border-orange-500/20">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-orange-400 mt-0.5" />
+            <div className="pt-1 flex items-start gap-1.5 text-[11px] text-orange-800 font-medium leading-tight bg-orange-50 p-1.5 rounded-lg border border-orange-200">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-orange-600 mt-0.5" />
               <span>Anomali: HDP &gt; 100% (Melebihi Kapasitas Biologis 1 butir/ekor)</span>
             </div>
           )}
@@ -97,7 +97,7 @@ function CustomChartTooltip({ active, payload, label }) {
 export function ProduksiChart({ analyticsData, loading }) {
   if (loading) {
     return (
-      <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col items-center justify-center min-h-[300px] text-slate-400">
+      <div className="p-6 rounded-2xl bg-white border border-border-subtle flex flex-col items-center justify-center min-h-[300px] text-content-muted shadow-xs">
         <Activity className="w-8 h-8 animate-pulse text-amber-500 mb-2" />
         <p className="text-xs font-medium">Memuat visualisasi grafik performa...</p>
       </div>
@@ -106,10 +106,10 @@ export function ProduksiChart({ analyticsData, loading }) {
 
   if (!analyticsData || !analyticsData.data_points || analyticsData.data_points.length === 0) {
     return (
-      <div className="p-8 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800 text-center min-h-[220px] flex flex-col items-center justify-center">
-        <TrendingUp className="w-10 h-10 text-slate-600 mb-2" />
-        <p className="text-sm font-semibold text-slate-300">Belum Ada Data Tren Performa</p>
-        <p className="text-xs text-slate-500 mt-1 max-w-sm">
+      <div className="p-8 rounded-2xl bg-white border border-dashed border-border-subtle text-center min-h-[220px] flex flex-col items-center justify-center shadow-xs">
+        <TrendingUp className="w-10 h-10 text-slate-400 mb-2" />
+        <p className="text-sm font-bold text-content-primary">Belum Ada Data Tren Performa</p>
+        <p className="text-xs text-content-secondary mt-1 max-w-sm">
           Pilih filter kandang atau rentang tanggal yang memuat catatan produksi untuk menampilkan grafik HDP.
         </p>
       </div>
@@ -130,28 +130,28 @@ export function ProduksiChart({ analyticsData, loading }) {
   const avgHdp = summary.rata_rata_hdp
   const avgColor =
     avgHdp > 100
-      ? 'text-orange-400 bg-orange-500/10 border-orange-500/30'
+      ? 'text-orange-700 bg-orange-50 border-orange-300'
       : avgHdp >= 85
-      ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
       : avgHdp >= 70
-      ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-      : 'text-rose-400 bg-rose-500/10 border-rose-500/20'
+      ? 'text-amber-700 bg-amber-50 border-amber-200'
+      : 'text-rose-700 bg-rose-50 border-rose-200'
 
   return (
-    <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-5">
+    <div className="p-5 rounded-2xl bg-white border border-border-subtle shadow-xs space-y-5">
       {/* Analytics Summary Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border-subtle">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-white text-base tracking-tight flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-amber-400" />
+            <h3 className="font-bold text-content-primary text-base tracking-tight flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-brand" />
               Grafik Tren Performa Hen Day Production (HDP%)
             </h3>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface-muted text-content-secondary border border-border-subtle">
               {chartData.length} Titik Data
             </span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-0.5">
+          <p className="text-[11px] text-content-secondary mt-0.5">
             Kombinasi garis rasio HDP (%) terhadap kuantitas panen telur normal per hari.
           </p>
         </div>
@@ -159,24 +159,24 @@ export function ProduksiChart({ analyticsData, loading }) {
         {/* Quick KPI Badges */}
         <div className="flex flex-wrap items-center gap-3">
           {summary.total_anomali_hdp > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500/15 border border-orange-500/30 text-xs text-orange-300 font-semibold animate-pulse">
-              <AlertTriangle className="w-3.5 h-3.5 text-orange-400" />
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 border border-orange-200 text-xs text-orange-800 font-bold animate-pulse">
+              <AlertTriangle className="w-3.5 h-3.5 text-orange-600" />
               <span>{summary.total_anomali_hdp} Hari Anomali (&gt;100%)</span>
             </div>
           )}
 
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs">
-            <span className="text-slate-400 font-medium">Rata-rata HDP:</span>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-muted border border-border-subtle text-xs">
+            <span className="text-content-secondary font-medium">Rata-rata HDP:</span>
             <span className={`px-2 py-0.5 rounded-full font-bold border ${avgColor}`}>
               {avgHdp}%
             </span>
           </div>
 
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs">
-            <span className="text-slate-400 font-medium">Rasio Rusak:</span>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-muted border border-border-subtle text-xs">
+            <span className="text-content-secondary font-medium">Rasio Rusak:</span>
             <span
               className={`font-bold ${
-                summary.persentase_telur_abnormal > 5 ? 'text-rose-400' : 'text-slate-200'
+                summary.persentase_telur_abnormal > 5 ? 'text-rose-600' : 'text-content-primary'
               }`}
             >
               {summary.persentase_telur_abnormal}%
@@ -189,32 +189,32 @@ export function ProduksiChart({ analyticsData, loading }) {
       <div className="w-full h-72">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
             <XAxis
               dataKey="displayDate"
-              stroke="#94a3b8"
+              stroke="#64748b"
               fontSize={11}
               tickLine={false}
-              axisLine={{ stroke: '#475569' }}
+              axisLine={{ stroke: '#cbd5e1' }}
             />
             {/* Left Y Axis: HDP Percentage */}
             <YAxis
               yAxisId="hdp"
-              stroke="#f59e0b"
+              stroke="#d97706"
               fontSize={11}
               tickFormatter={(v) => `${v}%`}
               tickLine={false}
-              axisLine={{ stroke: '#475569' }}
+              axisLine={{ stroke: '#cbd5e1' }}
             />
             {/* Right Y Axis: Egg Count */}
             <YAxis
               yAxisId="butir"
               orientation="right"
-              stroke="#10b981"
+              stroke="#059669"
               fontSize={11}
               tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v)}
               tickLine={false}
-              axisLine={{ stroke: '#475569' }}
+              axisLine={{ stroke: '#cbd5e1' }}
             />
 
             <Tooltip content={<CustomChartTooltip />} />
@@ -234,11 +234,11 @@ export function ProduksiChart({ analyticsData, loading }) {
               y={85}
               label={{
                 value: 'Standar Target 85%',
-                fill: '#10b981',
+                fill: '#059669',
                 fontSize: 10,
                 position: 'insideTopRight',
               }}
-              stroke="#10b981"
+              stroke="#059669"
               strokeDasharray="4 4"
               strokeWidth={1.5}
             />
@@ -248,9 +248,9 @@ export function ProduksiChart({ analyticsData, loading }) {
               yAxisId="butir"
               dataKey="jumlah_butir_normal"
               fill="#10b981"
-              opacity={0.35}
+              opacity={0.45}
               radius={[4, 4, 0, 0]}
-              maxBarSize={36}
+              maxBarSize={32}
             />
 
             {/* HDP% (Line) on Left Y Axis */}
@@ -258,17 +258,17 @@ export function ProduksiChart({ analyticsData, loading }) {
               yAxisId="hdp"
               type="monotone"
               dataKey="hdp_percentage"
-              stroke="#f59e0b"
-              strokeWidth={3}
-              dot={{ r: 4, fill: '#f59e0b', stroke: '#0f172a', strokeWidth: 2 }}
-              activeDot={{ r: 6, fill: '#fbbf24', stroke: '#fff', strokeWidth: 2 }}
+              stroke="#d97706"
+              strokeWidth={2.5}
+              dot={{ r: 3.5, fill: '#d97706', stroke: '#ffffff', strokeWidth: 1.5 }}
+              activeDot={{ r: 5, fill: '#b45309', stroke: '#ffffff', strokeWidth: 2 }}
             />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
 
       {/* Benchmark & Anomaly Indicator Legend */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80 text-[11px] text-slate-400">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border-subtle text-[11px] text-content-secondary">
         <div className="flex flex-wrap items-center gap-3">
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
@@ -282,12 +282,12 @@ export function ProduksiChart({ analyticsData, loading }) {
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
             <span>Kritis (&lt; 70%)</span>
           </span>
-          <span className="flex items-center gap-1.5 text-orange-300 font-medium">
+          <span className="flex items-center gap-1.5 text-orange-700 font-medium">
             <span className="w-2.5 h-2.5 rounded-full bg-orange-500 inline-block" />
             <span>Anomali (&gt; 100%)</span>
           </span>
         </div>
-        <span className="text-[10px] text-slate-500">
+        <span className="text-[10px] text-content-muted">
           *HDP &gt; 100% menandakan anomali input (1 ekor ayam maksimal menghasilkan 1 butir/hari)
         </span>
       </div>
