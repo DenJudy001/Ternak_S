@@ -29,39 +29,39 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
-      {/* Background Glow */}
+    <div className="min-h-screen bg-surface-page text-content-primary flex items-center justify-center p-4">
+      {/* Background Soft Ambient */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-brand/5 rounded-full blur-3xl" />
       </div>
 
-      <div className="relative w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl p-8 backdrop-blur-xl">
+      <div className="relative w-full max-w-md bg-white border border-border-subtle rounded-2xl shadow-xl p-6 sm:p-8">
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-emerald-400 text-slate-950 font-black text-2xl shadow-lg shadow-emerald-500/20 mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand text-white font-black text-2xl shadow-md shadow-brand/20 mb-4">
             ST
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">SiTernak System</h1>
-          <p className="text-sm text-slate-400 mt-1">Masuk untuk mengelola operasional peternakan</p>
+          <h1 className="text-2xl font-black tracking-tight text-content-primary">SiTernak System</h1>
+          <p className="text-xs sm:text-sm text-content-secondary mt-1">Masuk untuk mengelola operasional peternakan</p>
         </div>
 
         {/* Error Alert */}
         {errorMessage && (
-          <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-3 text-rose-400 text-sm animate-shake">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-            <p>{errorMessage}</p>
+          <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-3 text-rose-700 text-xs shadow-xs animate-shake">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-600" />
+            <p className="font-medium">{errorMessage}</p>
           </div>
         )}
 
         {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-bold text-content-primary uppercase tracking-wider mb-1.5">
               Username
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-content-muted">
                 <User className="w-5 h-5" />
               </div>
               <input
@@ -70,17 +70,17 @@ export function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="admin"
                 disabled={isSubmitting}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
+                className="w-full pl-10 pr-4 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-brand text-sm"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-bold text-content-primary uppercase tracking-wider mb-1.5">
               Password
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-content-muted">
                 <Lock className="w-5 h-5" />
               </div>
               <input
@@ -89,12 +89,12 @@ export function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 disabled={isSubmitting}
-                className="w-full pl-10 pr-11 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
+                className="w-full pl-10 pr-11 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-brand text-sm"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300 transition"
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-content-muted hover:text-content-primary transition cursor-pointer"
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
@@ -104,7 +104,7 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+            className="w-full py-3 px-4 min-h-[44px] rounded-xl bg-brand hover:bg-brand-hover text-white font-bold transition flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed mt-4 cursor-pointer"
           >
             {isSubmitting ? (
               <>
@@ -120,4 +120,5 @@ export function LoginPage() {
     </div>
   )
 }
+
 export default LoginPage

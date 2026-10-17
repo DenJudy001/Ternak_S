@@ -26,50 +26,14 @@ import {
   Receipt,
 } from 'lucide-react'
 import { getDashboardSummary } from '../services/dashboardService'
+import {
+  formatRupiah,
+  formatDisplayDateLong,
+  formatChartDate,
+} from '../utils/formatters'
+import { Card, Badge } from '../components/common'
 
-// Helper Universal Format Rupiah
-function formatRupiah(amount) {
-  if (amount === undefined || amount === null || isNaN(amount)) return 'Rp 0'
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
-// Helper Format Tanggal Indonesia Lengkap
-function formatDisplayDateLong(dateString) {
-  if (!dateString) return '-'
-  try {
-    const [y, m, d] = dateString.split('-').map(Number)
-    const dateObj = new Date(y, m - 1, d)
-    return new Intl.DateTimeFormat('id-ID', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    }).format(dateObj)
-  } catch {
-    return dateString
-  }
-}
-
-// Helper Format Tanggal Ringkas untuk Sumbu Chart (DD Mon)
-function formatChartDate(dateString) {
-  if (!dateString) return ''
-  try {
-    const [y, m, d] = dateString.split('-').map(Number)
-    const dateObj = new Date(y, m - 1, d)
-    return new Intl.DateTimeFormat('id-ID', {
-      day: 'numeric',
-      month: 'short',
-    }).format(dateObj)
-  } catch {
-    return dateString
-  }
-}
-
-// Custom Glassmorphic Tooltip untuk Mini Trend Chart
+// Custom Tooltip untuk Mini Trend Chart (Light Theme)
 function CustomChartTooltip({ active, payload, label }) {
   if (active && payload && payload.length) {
     const prod = payload.find((p) => p.dataKey === 'butir_produksi')?.value || 0
@@ -77,34 +41,35 @@ function CustomChartTooltip({ active, payload, label }) {
     const selisih = prod - sales
 
     return (
-      <div className="bg-slate-900/95 border border-slate-700/80 p-3 rounded-xl shadow-2xl backdrop-blur-md text-xs space-y-1.5 min-w-[190px]">
-        <div className="border-b border-slate-800 pb-1 flex items-center justify-between">
-          <span className="font-semibold text-white">{formatDisplayDateLong(label)}</span>
+      <div className="bg-white/95 border border-slate-200 p-3 rounded-xl shadow-xl backdrop-blur-md text-xs space-y-1.5 min-w-[200px]">
+        <div className="border-b border-slate-100 pb-1.5 flex items-center justify-between">
+          <span className="font-bold text-content-primary">{formatDisplayDateLong(label)}</span>
         </div>
-        <div className="space-y-1 text-slate-300">
+        <div className="space-y-1.5 text-content-secondary">
           <div className="flex items-center justify-between">
-            <span className="text-amber-400 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-amber-400" />
+            <span className="text-amber-700 flex items-center gap-1.5 font-medium">
+              <span className="w-2.5 h-2.5 rounded-sm bg-amber-500" />
               Panen Normal:
             </span>
-            <span className="font-mono font-bold text-white">
+            <span className="font-mono font-bold text-content-primary">
               {prod.toLocaleString('id-ID')} butir
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-purple-400 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-purple-400" />
+            <span className="text-purple-700 flex items-center gap-1.5 font-medium">
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
               Penjualan:
             </span>
-            <span className="font-mono font-bold text-white">
+            <span className="font-mono font-bold text-content-primary">
               {sales.toLocaleString('id-ID')} butir
             </span>
           </div>
-          <div className="border-t border-slate-800/80 pt-1 flex items-center justify-between text-[11px]">
-            <span className="text-slate-400">Net Mutasi:</span>
+          <div className="border-t border-slate-100 pt-1.5 flex items-center justify-between text-[11px]">
+            <span className="text-content-muted">Net Mutasi:</span>
             <span
-              className={`font-mono font-semibold ${selisih >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                }`}
+              className={`font-mono font-bold ${
+                selisih >= 0 ? 'text-emerald-600' : 'text-rose-600'
+              }`}
             >
               {selisih >= 0 ? `+${selisih}` : selisih} butir
             </span>
@@ -152,15 +117,15 @@ export function DashboardPage({ onNavigate }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* 1. Header Bar Dashboard: Tanggal, Popover Date Picker, & Desktop Quick Actions */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-slate-950 border border-slate-800 relative overflow-visible">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-5 rounded-2xl bg-white border border-border-subtle shadow-xs relative">
         <div>
-          <h2 className="text-2xl font-black text-white tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-black text-content-primary tracking-tight">
             Ringkasan Eksekutif Peternakan
           </h2>
           <div className="flex items-center gap-2 mt-1 relative flex-wrap">
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-content-secondary font-medium">
               {summary
                 ? formatDisplayDateLong(summary.tanggal_referensi)
                 : 'Memuat data analitik...'}
@@ -172,25 +137,26 @@ export function DashboardPage({ onNavigate }) {
                 type="button"
                 onClick={() => setShowDatePicker(!showDatePicker)}
                 title="Pilih tanggal evaluasi"
-                className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center ${selectedDate
-                    ? 'bg-amber-500/10 border-amber-500/40 text-amber-400 hover:bg-amber-500/20'
-                    : 'bg-slate-800/80 border-slate-700/80 text-slate-400 hover:text-white hover:border-slate-600'
-                  }`}
+                className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center ${
+                  selectedDate
+                    ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
+                    : 'bg-surface-muted border-border-subtle text-content-secondary hover:text-content-primary hover:border-slate-300'
+                }`}
               >
-                <Calendar className="w-3.5 h-3.5" />
+                <Calendar className="w-4 h-4" />
               </button>
 
               {/* Floating Popover Date Picker */}
               {showDatePicker && (
-                <div className="absolute left-0 top-full mt-2 z-50 p-3 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl backdrop-blur-xl min-w-[220px]">
-                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
-                    <span className="text-xs font-semibold text-white">Pilih Tanggal</span>
+                <div className="absolute left-0 top-full mt-2 z-50 p-3 rounded-xl bg-white border border-border-subtle shadow-xl min-w-[220px]">
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-border-subtle">
+                    <span className="text-xs font-bold text-content-primary">Pilih Tanggal</span>
                     <button
                       type="button"
                       onClick={() => setShowDatePicker(false)}
-                      className="text-slate-400 hover:text-white transition"
+                      className="text-content-muted hover:text-content-primary transition"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
                   <input
@@ -200,7 +166,7 @@ export function DashboardPage({ onNavigate }) {
                       handleDateChange(e)
                       setShowDatePicker(false)
                     }}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    className="w-full bg-surface-page border border-border-subtle rounded-lg px-2.5 py-1.5 text-xs text-content-primary focus:outline-none focus:border-brand cursor-pointer"
                   />
                   {selectedDate && (
                     <button
@@ -209,7 +175,7 @@ export function DashboardPage({ onNavigate }) {
                         handleResetToday()
                         setShowDatePicker(false)
                       }}
-                      className="w-full mt-2 py-1 text-center text-xs text-emerald-400 hover:text-emerald-300 font-medium border border-emerald-500/20 rounded-lg hover:bg-emerald-500/10 transition"
+                      className="w-full mt-2 py-1 text-center text-xs text-brand hover:text-brand-hover font-semibold border border-brand/20 rounded-lg hover:bg-brand-light transition cursor-pointer"
                     >
                       Kembali ke Hari Ini
                     </button>
@@ -221,16 +187,16 @@ export function DashboardPage({ onNavigate }) {
 
           {/* Time-Travel Mode Badge Indicator */}
           {selectedDate && (
-            <div className="inline-flex items-center gap-2 mt-2 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">
+            <div className="inline-flex items-center gap-2 mt-2 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
               <span>
-                Melihat tanggal: <strong className="font-mono text-white">{selectedDate}</strong>
+                Melihat tanggal: <strong className="font-mono text-content-primary">{selectedDate}</strong>
               </span>
               <button
                 type="button"
                 onClick={handleResetToday}
-                className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-white font-semibold transition cursor-pointer"
+                className="px-2 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold transition cursor-pointer"
               >
-                Kembali ke Hari Ini
+                Reset
               </button>
             </div>
           )}
@@ -241,84 +207,135 @@ export function DashboardPage({ onNavigate }) {
           <button
             type="button"
             onClick={() => onNavigate('produksi-telur')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-semibold transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold transition cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5 text-amber-600" />
             <span>Panen</span>
           </button>
           <button
             type="button"
             onClick={() => onNavigate('penjualan')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/30 text-xs font-semibold transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-xs font-bold transition cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5 text-purple-600" />
             <span>Penjualan</span>
           </button>
           <button
             type="button"
             onClick={() => onNavigate('pengeluaran')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5 text-emerald-600" />
             <span>Biaya</span>
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center justify-between gap-2">
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center justify-between gap-2 shadow-xs">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
+            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+            <span className="font-medium">{error}</span>
           </div>
           <button
             onClick={() => fetchSummary(selectedDate)}
-            className="px-2 py-1 rounded bg-rose-500/20 hover:bg-rose-500/30 font-semibold"
+            className="px-2.5 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold cursor-pointer"
           >
             Coba Lagi
           </button>
         </div>
       )}
 
-      {/* 2. Tiga (3) Hero KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      {/* PRIORITY #1 (Mobile & Desktop Alert): Banner Peringatan Kritis */}
+      {summary && !summary.hdp_hari_ini.is_today_recorded && (
+        <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5 text-amber-700" />
+            </div>
+            <div>
+              <span className="font-bold text-sm block sm:inline">Panen Hari Ini Belum Dicatat!</span>
+              <p className="text-xs text-amber-800 mt-0.5">
+                Segera catat data produksi telur harian untuk memperbarui kalkulasi HDP dan stok riil gudang.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate('produksi-telur')}
+            className="px-4 py-2.5 min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+          >
+            <span>Catat Panen Sekarang</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {summary && summary.stok_gudang.is_underflow && (
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-rose-900 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-rose-100 border border-rose-200 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-5 h-5 text-rose-700" />
+            </div>
+            <div>
+              <span className="font-bold text-sm block sm:inline">Defisit Stok Gudang Terdeteksi!</span>
+              <p className="text-xs text-rose-800 mt-0.5">
+                Total penjualan melebihi akumulasi panen riil. Segera periksa ledger mutasi stok.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate('stok-telur')}
+            className="px-4 py-2.5 min-h-[44px] rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+          >
+            <span>Buka Ledger Stok</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* PRIORITY #2: Tiga (3) Hero KPI Cards (Stacked 1 Col on Mobile, 3 Col on Desktop) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
         {/* KPI 1: HDP Hari Ini */}
-        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 relative overflow-hidden flex flex-col justify-between shadow-lg">
+        <Card className="flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Activity className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-bold text-content-secondary uppercase tracking-wider flex items-center gap-1.5">
+                <Activity className="w-4 h-4 text-amber-600" />
                 HDP Hari Ini
               </span>
               {summary && (
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${summary.hdp_hari_ini.status_performa === 'prima'
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                <Badge
+                  variant={
+                    summary.hdp_hari_ini.status_performa === 'prima'
+                      ? 'success'
                       : summary.hdp_hari_ini.status_performa === 'standar'
-                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                        : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                    }`}
+                      ? 'warning'
+                      : 'danger'
+                  }
+                  size="sm"
                 >
-                  {summary.hdp_hari_ini.status_performa}
-                </span>
+                  {summary.hdp_hari_ini.status_performa.toUpperCase()}
+                </Badge>
               )}
             </div>
 
             <div className="flex items-baseline gap-2 mb-2">
-              <span className="text-4xl font-black text-white tracking-tight font-mono">
+              <span className="text-4xl font-black text-content-primary tracking-tight font-mono">
                 {summary ? `${summary.hdp_hari_ini.persentase.toFixed(1)}%` : '--%'}
               </span>
-              <span className="text-xs text-slate-400">Produktivitas telur</span>
+              <span className="text-xs text-content-secondary font-medium">Produktivitas telur</span>
             </div>
 
-            <p className="text-xs text-slate-400 leading-relaxed mb-3">
+            <p className="text-xs text-content-secondary leading-relaxed mb-3">
               {summary ? (
                 <>
-                  <span className="font-semibold text-white">
+                  <span className="font-bold text-content-primary">
                     {summary.hdp_hari_ini.total_butir_normal.toLocaleString('id-ID')}
                   </span>{' '}
                   butir normal dari{' '}
-                  <span className="font-semibold text-white">
+                  <span className="font-bold text-content-primary">
                     {summary.hdp_hari_ini.total_populasi_efektif.toLocaleString('id-ID')}
                   </span>{' '}
                   ekor ayam aktif.
@@ -329,63 +346,56 @@ export function DashboardPage({ onNavigate }) {
             </p>
           </div>
 
-          {/* Contextual Warning jika Panen Hari Ini Belum Diinput (Pagi Hari) */}
-          {summary && !summary.hdp_hari_ini.is_today_recorded && (
-            <div
-              onClick={() => onNavigate('produksi-telur')}
-              className="mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2 text-[11px] text-amber-300 cursor-pointer hover:bg-amber-500/20 transition group"
-            >
-              <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-              <div className="leading-snug">
-                <span>Panen hari ini belum dicatat. Menampilkan referensi terakhir </span>
-                <span className="font-bold text-amber-200">
-                  ({summary.hdp_hari_ini.tanggal_referensi_produksi || 'N/A'})
-                </span>
-                . <span className="underline group-hover:text-white font-medium">Klik untuk input &rarr;</span>
+          <div className="pt-3 border-t border-border-subtle">
+            {summary && summary.hdp_hari_ini.is_today_recorded ? (
+              <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-semibold">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Panen hari ini sudah tercatat.</span>
               </div>
-            </div>
-          )}
-
-          {summary && summary.hdp_hari_ini.is_today_recorded && (
-            <div className="mt-2 flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Data panen hari ini sudah tercatat lengkap.</span>
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-xs text-amber-700 font-medium">
+                <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Menampilkan referensi panen terakhir.</span>
+              </div>
+            )}
+          </div>
+        </Card>
 
         {/* KPI 2: Laba / Rugi Bulan Ini */}
-        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 relative overflow-hidden flex flex-col justify-between shadow-lg">
+        <Card className="flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <DollarSign className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs font-bold text-content-secondary uppercase tracking-wider flex items-center gap-1.5">
+                <DollarSign className="w-4 h-4 text-emerald-600" />
                 Laba / Rugi Bulan Ini
               </span>
               {summary && (
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${summary.keuangan_bulan_ini.status === 'untung'
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                <Badge
+                  variant={
+                    summary.keuangan_bulan_ini.status === 'untung'
+                      ? 'success'
                       : summary.keuangan_bulan_ini.status === 'rugi'
-                        ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                        : 'bg-slate-500/10 text-slate-400 border-slate-500/30'
-                    }`}
+                      ? 'danger'
+                      : 'neutral'
+                  }
+                  size="sm"
                 >
-                  {summary.keuangan_bulan_ini.status}
-                </span>
+                  {summary.keuangan_bulan_ini.status.toUpperCase()}
+                </Badge>
               )}
             </div>
 
             <div className="flex items-baseline gap-2 mb-2">
               <span
-                className={`text-3xl font-black font-mono tracking-tight ${!summary
-                    ? 'text-white'
+                className={`text-3xl font-black font-mono tracking-tight ${
+                  !summary
+                    ? 'text-content-primary'
                     : summary.keuangan_bulan_ini.status === 'untung'
-                      ? 'text-emerald-400'
-                      : summary.keuangan_bulan_ini.status === 'rugi'
-                        ? 'text-rose-400'
-                        : 'text-slate-300'
-                  }`}
+                    ? 'text-emerald-700'
+                    : summary.keuangan_bulan_ini.status === 'rugi'
+                    ? 'text-rose-700'
+                    : 'text-content-primary'
+                }`}
               >
                 {summary
                   ? formatRupiah(summary.keuangan_bulan_ini.laba_rugi_bersih)
@@ -394,83 +404,84 @@ export function DashboardPage({ onNavigate }) {
             </div>
 
             <div className="flex items-center gap-2 mb-4">
-              <span
-                className={`text-xs font-bold px-2 py-0.5 rounded-md ${!summary
-                    ? 'bg-slate-800 text-slate-400'
-                    : summary.keuangan_bulan_ini.margin_persen >= 0
-                      ? 'bg-emerald-500/20 text-emerald-300'
-                      : 'bg-rose-500/20 text-rose-300'
-                  }`}
+              <Badge
+                variant={
+                  summary && summary.keuangan_bulan_ini.margin_persen >= 0
+                    ? 'success'
+                    : 'danger'
+                }
+                size="sm"
               >
                 {summary
                   ? `${summary.keuangan_bulan_ini.margin_persen >= 0 ? '+' : ''}${summary.keuangan_bulan_ini.margin_persen.toFixed(1)}% Margin`
                   : '0% Margin'}
-              </span>
-              <span className="text-[11px] text-slate-400">Bulan ini</span>
+              </Badge>
+              <span className="text-xs text-content-secondary font-medium">Bulan berjalan</span>
             </div>
           </div>
 
-          <div className="pt-3 border-t border-slate-800/80 grid grid-cols-2 gap-2 text-xs">
+          <div className="pt-3 border-t border-border-subtle grid grid-cols-2 gap-2 text-xs">
             <div>
-              <span className="text-slate-400 block text-[11px]">Pemasukan:</span>
-              <span className="font-mono font-semibold text-white">
+              <span className="text-content-secondary block text-[11px] font-medium">Pemasukan:</span>
+              <span className="font-mono font-bold text-emerald-700">
                 {summary ? formatRupiah(summary.keuangan_bulan_ini.total_pendapatan) : 'Rp 0'}
               </span>
             </div>
             <div>
-              <span className="text-slate-400 block text-[11px]">Pengeluaran:</span>
-              <span className="font-mono font-semibold text-rose-300">
+              <span className="text-content-secondary block text-[11px] font-medium">Pengeluaran:</span>
+              <span className="font-mono font-bold text-rose-700">
                 {summary ? formatRupiah(summary.keuangan_bulan_ini.total_pengeluaran) : 'Rp 0'}
               </span>
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* KPI 3: Stok Telur Gudang */}
-        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 relative overflow-hidden flex flex-col justify-between shadow-lg">
+        <Card className="flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Boxes className="w-4 h-4 text-cyan-400" />
+              <span className="text-xs font-bold text-content-secondary uppercase tracking-wider flex items-center gap-1.5">
+                <Boxes className="w-4 h-4 text-cyan-600" />
                 Stok Telur Gudang
               </span>
               {summary && (
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${summary.stok_gudang.status_gudang === 'aman'
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                <Badge
+                  variant={
+                    summary.stok_gudang.status_gudang === 'aman'
+                      ? 'success'
                       : summary.stok_gudang.status_gudang === 'tipis'
-                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                        : summary.stok_gudang.status_gudang === 'habis'
-                          ? 'bg-slate-500/10 text-slate-400 border-slate-500/30'
-                          : 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
-                    }`}
+                      ? 'warning'
+                      : summary.stok_gudang.status_gudang === 'habis'
+                      ? 'neutral'
+                      : 'danger'
+                  }
+                  size="sm"
                 >
-                  {summary.stok_gudang.status_gudang}
-                </span>
+                  {summary.stok_gudang.status_gudang.toUpperCase()}
+                </Badge>
               )}
             </div>
 
             <div className="flex items-baseline gap-2 mb-2">
               <span
-                className={`text-4xl font-black font-mono tracking-tight ${!summary
-                    ? 'text-white'
-                    : summary.stok_gudang.is_underflow
-                      ? 'text-rose-400'
-                      : 'text-white'
-                  }`}
+                className={`text-4xl font-black font-mono tracking-tight ${
+                  summary && summary.stok_gudang.is_underflow
+                    ? 'text-rose-700'
+                    : 'text-content-primary'
+                }`}
               >
                 {summary
                   ? summary.stok_gudang.stok_tersedia.toLocaleString('id-ID')
                   : '--'}
               </span>
-              <span className="text-xs text-slate-400">butir siap jual</span>
+              <span className="text-xs text-content-secondary font-medium">butir siap jual</span>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed mb-3">
+            <p className="text-xs text-content-secondary leading-relaxed mb-3">
               {summary ? (
                 <>
                   Setara{' '}
-                  <span className="font-semibold text-white font-mono">
+                  <span className="font-bold text-content-primary font-mono">
                     {summary.stok_gudang.format_tray}
                   </span>{' '}
                   (~{summary.stok_gudang.estimasi_kg.toLocaleString('id-ID')} kg)
@@ -481,47 +492,34 @@ export function DashboardPage({ onNavigate }) {
             </p>
           </div>
 
-          {/* Warning Banner jika Status Stok Defisit / Underflow */}
-          {summary && summary.stok_gudang.is_underflow && (
-            <div className="p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-start gap-2 text-[11px] text-rose-300 animate-pulse">
-              <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
-              <div className="leading-snug">
-                <span className="font-bold">Defisit Stok Gudang! </span>
-                Penjualan melebihi stok panen riil. Segera periksa ledger mutasi.
-              </div>
-            </div>
-          )}
-
-          {summary && !summary.stok_gudang.is_underflow && (
-            <div className="pt-2 flex items-center justify-between text-xs text-slate-400">
-              <button
-                onClick={() => onNavigate('stok-telur')}
-                className="text-cyan-400 hover:text-cyan-300 inline-flex items-center gap-1 font-medium transition"
-              >
-                <span>Buka Ledger Mutasi</span>
-                <ArrowRight className="w-3 h-3" />
-              </button>
-            </div>
-          )}
-        </div>
+          <div className="pt-3 border-t border-border-subtle flex items-center justify-between text-xs">
+            <button
+              onClick={() => onNavigate('stok-telur')}
+              className="text-brand hover:text-brand-hover inline-flex items-center gap-1 font-bold transition cursor-pointer"
+            >
+              <span>Buka Ledger Mutasi</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </Card>
       </div>
 
-      {/* 3. Mini Trend Chart: Perbandingan Produksi vs Penjualan (Fleksibel n-Hari) */}
-      <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-lg">
+      {/* PRIORITY #3: Mini Trend Chart (Produksi vs Penjualan) */}
+      <Card>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div>
-            <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-base font-bold text-content-primary tracking-tight flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-brand" />
               Tren Produksi Telur vs Penjualan ({trendDays} Hari Terakhir)
             </h3>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-content-secondary">
               Perbandingan kurva panen normal harian (bar) terhadap volume telur terjual (line).
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             {/* Periode Toggle Pills */}
-            <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+            <div className="flex items-center bg-surface-muted p-1 rounded-xl border border-border-subtle text-xs">
               {[
                 { days: 7, label: '7 Hari' },
                 { days: 14, label: '14 Hari' },
@@ -530,10 +528,11 @@ export function DashboardPage({ onNavigate }) {
                 <button
                   key={p.days}
                   onClick={() => setTrendDays(p.days)}
-                  className={`px-3 py-1 rounded-lg font-medium transition ${trendDays === p.days
-                      ? 'bg-emerald-500 text-white font-bold shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                    }`}
+                  className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                    trendDays === p.days
+                      ? 'bg-white text-brand shadow-xs'
+                      : 'text-content-secondary hover:text-content-primary'
+                  }`}
                 >
                   {p.label}
                 </button>
@@ -542,11 +541,11 @@ export function DashboardPage({ onNavigate }) {
 
             {/* Legend */}
             <div className="flex items-center gap-3 text-xs pl-1">
-              <span className="inline-flex items-center gap-1.5 text-amber-400 font-medium">
-                <span className="w-3 h-3 rounded-sm bg-amber-500/80" />
+              <span className="inline-flex items-center gap-1.5 text-amber-700 font-semibold">
+                <span className="w-3 h-3 rounded-sm bg-amber-500" />
                 Panen Normal
               </span>
-              <span className="inline-flex items-center gap-1.5 text-purple-400 font-medium">
+              <span className="inline-flex items-center gap-1.5 text-purple-700 font-semibold">
                 <span className="w-3 h-1 bg-purple-500 rounded-full" />
                 Penjualan
               </span>
@@ -561,16 +560,16 @@ export function DashboardPage({ onNavigate }) {
                 data={summary.tren_7_hari}
                 margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                 <XAxis
                   dataKey="tanggal"
                   tickFormatter={formatChartDate}
-                  stroke="#94a3b8"
+                  stroke="#64748b"
                   fontSize={11}
                   tickLine={false}
                 />
                 <YAxis
-                  stroke="#94a3b8"
+                  stroke="#64748b"
                   fontSize={11}
                   tickLine={false}
                   allowDecimals={false}
@@ -580,8 +579,8 @@ export function DashboardPage({ onNavigate }) {
                   dataKey="butir_produksi"
                   name="Panen Normal"
                   fill="#f59e0b"
-                  radius={[6, 6, 0, 0]}
-                  maxBarSize={36}
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={32}
                 />
                 <Line
                   type="monotone"
@@ -589,41 +588,39 @@ export function DashboardPage({ onNavigate }) {
                   name="Penjualan"
                   stroke="#a855f7"
                   strokeWidth={2.5}
-                  dot={{ r: 4, fill: '#a855f7', stroke: '#1e1b4b', strokeWidth: 2 }}
-                  activeDot={{ r: 6, fill: '#c084fc', stroke: '#ffffff', strokeWidth: 2 }}
+                  dot={{ r: 3.5, fill: '#a855f7', stroke: '#ffffff', strokeWidth: 1.5 }}
+                  activeDot={{ r: 5, fill: '#9333ea', stroke: '#ffffff', strokeWidth: 2 }}
                 />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="h-48 flex items-center justify-center text-xs text-slate-500 font-medium">
+          <div className="h-48 flex items-center justify-center text-xs text-content-muted font-medium">
             Tidak ada data deret tren untuk periode terpilih.
           </div>
         )}
-      </div>
+      </Card>
 
-      {/* 4. Mobile Quick Action FAB & Speed Dial (hidden on desktop >= md) */}
+      {/* 4. Mobile Quick Action FAB & Speed Dial (positioned above BottomNav at bottom-20) */}
       {isFabOpen && (
         <>
-          {/* Backdrop Overlay untuk Mobile */}
           <div
             onClick={() => setIsFabOpen(false)}
-            className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-40 md:hidden"
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 md:hidden"
           />
 
-          {/* Speed Dial Menu Items */}
-          <div className="fixed bottom-20 right-5 z-50 md:hidden flex flex-col items-end gap-2.5">
+          <div className="fixed bottom-24 right-4 z-50 md:hidden flex flex-col items-end gap-2.5">
             <button
               type="button"
               onClick={() => {
                 setIsFabOpen(false)
                 onNavigate('produksi-telur')
               }}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-slate-900 border border-amber-500/40 text-amber-400 shadow-xl hover:bg-slate-800 active:scale-95 transition cursor-pointer"
+              className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-white border border-border-subtle text-amber-700 shadow-xl active:scale-95 transition cursor-pointer"
             >
-              <span className="text-xs font-semibold text-slate-200">Catat Panen</span>
-              <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
-                <Egg className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-bold text-content-primary">Catat Panen</span>
+              <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+                <Egg className="w-4 h-4 text-amber-700" />
               </div>
             </button>
 
@@ -633,11 +630,11 @@ export function DashboardPage({ onNavigate }) {
                 setIsFabOpen(false)
                 onNavigate('penjualan')
               }}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-slate-900 border border-purple-500/40 text-purple-400 shadow-xl hover:bg-slate-800 active:scale-95 transition cursor-pointer"
+              className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-white border border-border-subtle text-purple-700 shadow-xl active:scale-95 transition cursor-pointer"
             >
-              <span className="text-xs font-semibold text-slate-200">Catat Penjualan</span>
-              <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
-                <ShoppingCart className="w-4 h-4 text-purple-400" />
+              <span className="text-xs font-bold text-content-primary">Catat Penjualan</span>
+              <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                <ShoppingCart className="w-4 h-4 text-purple-700" />
               </div>
             </button>
 
@@ -647,11 +644,11 @@ export function DashboardPage({ onNavigate }) {
                 setIsFabOpen(false)
                 onNavigate('pengeluaran')
               }}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-slate-900 border border-emerald-500/40 text-emerald-400 shadow-xl hover:bg-slate-800 active:scale-95 transition cursor-pointer"
+              className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-white border border-border-subtle text-emerald-700 shadow-xl active:scale-95 transition cursor-pointer"
             >
-              <span className="text-xs font-semibold text-slate-200">Catat Pengeluaran</span>
-              <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                <Receipt className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs font-bold text-content-primary">Catat Pengeluaran</span>
+              <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                <Receipt className="w-4 h-4 text-emerald-700" />
               </div>
             </button>
           </div>
@@ -659,11 +656,11 @@ export function DashboardPage({ onNavigate }) {
       )}
 
       {/* Floating Action Button (FAB) Mobile */}
-      <div className="fixed bottom-5 right-5 z-50 md:hidden">
+      <div className="fixed bottom-20 right-4 z-40 md:hidden">
         <button
           type="button"
           onClick={() => setIsFabOpen(!isFabOpen)}
-          className="flex items-center gap-2 px-4 py-3 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-xs shadow-xl shadow-emerald-500/30 active:scale-95 transition cursor-pointer"
+          className="flex items-center gap-2 px-4 py-3 rounded-full bg-brand hover:bg-brand-hover text-white font-bold text-xs shadow-lg active:scale-95 transition cursor-pointer"
         >
           <Plus className={`w-4 h-4 transition-transform duration-200 ${isFabOpen ? 'rotate-45' : ''}`} />
           <span>{isFabOpen ? 'Tutup' : 'Catat'}</span>
@@ -672,3 +669,5 @@ export function DashboardPage({ onNavigate }) {
     </div>
   )
 }
+
+export default DashboardPage

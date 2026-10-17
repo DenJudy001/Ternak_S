@@ -17,36 +17,17 @@ import {
   Clock,
   Filter,
 } from 'lucide-react'
-
-// Helper format angka Indonesia
-function formatNumber(num) {
-  if (num === undefined || num === null || isNaN(num)) return '0'
-  return Number(num).toLocaleString('id-ID')
-}
-
-// Helper format tanggal display lokal (DD MMM YYYY)
-function formatDisplayDate(dateString) {
-  if (!dateString) return '-'
-  try {
-    const [y, m, d] = dateString.split('-').map(Number)
-    const dateObj = new Date(y, m - 1, d)
-    return new Intl.DateTimeFormat('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    }).format(dateObj)
-  } catch {
-    return dateString
-  }
-}
-
-// Helper format YYYY-MM-DD
-function formatLocalDate(d = new Date()) {
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
+import {
+  formatLocalDate,
+  formatDisplayDate,
+  formatNumber,
+} from '../utils/formatters'
+import {
+  Card,
+  Badge,
+  PageHeader,
+  EmptyState,
+} from '../components/common'
 
 export function StokTelurPage() {
   const [summary, setSummary] = useState(null)
@@ -62,7 +43,7 @@ export function StokTelurPage() {
   const [error, setError] = useState('')
 
   // Filter States
-  const [datePreset, setDatePreset] = useState('all') // 'all' | 'this_month' | '30days' | '7days' | 'today' | 'custom'
+  const [datePreset, setDatePreset] = useState('all')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
 
@@ -73,11 +54,9 @@ export function StokTelurPage() {
     setError('')
 
     try {
-      // 1. Fetch live summary
       const summaryRes = await getStokSummary()
       setSummary(summaryRes)
 
-      // 2. Fetch mutasi ledger with current filters
       const filterParams = {}
       if (startDate) filterParams.start_date = startDate
       if (endDate) filterParams.end_date = endDate
@@ -126,36 +105,32 @@ export function StokTelurPage() {
     }
   }
 
-  // Status Badge Helper
+  // Status Badge Helper using shared Badge
   const renderStatusBadge = (status) => {
     switch (status) {
       case 'aman':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Aman (&gt; 100)
-          </span>
+          <Badge variant="cool" size="sm">
+            AMAN (&gt; 100)
+          </Badge>
         )
       case 'tipis':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-            Stok Tipis
-          </span>
+          <Badge variant="warning" size="sm">
+            STOK TIPIS
+          </Badge>
         )
       case 'habis':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-            Habis (0)
-          </span>
+          <Badge variant="neutral" size="sm">
+            HABIS (0)
+          </Badge>
         )
       case 'defisit':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 animate-pulse">
-            <AlertTriangle className="w-3 h-3" />
-            Defisit (&lt; 0)
-          </span>
+          <Badge variant="danger" size="sm" icon={<AlertTriangle className="w-3 h-3" />}>
+            DEFISIT (&lt; 0)
+          </Badge>
         )
       default:
         return null
@@ -163,57 +138,46 @@ export function StokTelurPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header Page */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-medium mb-2">
-            <Boxes className="w-3.5 h-3.5" />
-            <span>Manajemen Inventaris Gudang • Derived Ledger State</span>
-          </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            Stok & Mutasi Telur Gudang
-          </h2>
-          <p className="text-sm text-slate-400 mt-1">
-            Kalkulasi on-the-fly saldo stok siap jual, konversi fisik tray & kg, serta pelacakan buku mutasi harian.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <PageHeader
+        title="Stok & Mutasi Telur Gudang"
+        subtitle="Kalkulasi on-the-fly saldo stok siap jual, konversi fisik tray & kg, serta pelacakan buku mutasi harian (Stock Ledger)."
+        action={
           <button
             onClick={() => fetchData(true)}
             disabled={refreshing || loading}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition text-xs font-medium shadow-sm disabled:opacity-50"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-surface-muted hover:bg-slate-200 border border-border-subtle text-content-primary transition text-xs font-bold disabled:opacity-50 cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-cyan-400' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-brand' : ''}`} />
             <span>{refreshing ? 'Memperbarui...' : 'Sinkronkan Data'}</span>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Error Message */}
       {error && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-3 text-rose-400 text-xs animate-in fade-in duration-200">
-          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-3 text-rose-700 text-xs shadow-xs">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
           <div className="flex-1 font-medium">{error}</div>
         </div>
       )}
 
       {/* Deficit / Underflow Warning Banner */}
       {summary && summary.stok_tersedia < 0 && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-950/60 via-rose-900/30 to-slate-900/60 border-2 border-rose-500/60 shadow-lg shadow-rose-950/40 animate-in fade-in duration-200">
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-300 shadow-xs">
           <div className="flex items-start gap-3.5">
-            <div className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0 mt-0.5">
-              <AlertTriangle className="w-5 h-5 animate-bounce" />
+            <div className="w-9 h-9 rounded-xl bg-rose-100 border border-rose-200 flex items-center justify-center text-rose-700 shrink-0 mt-0.5">
+              <AlertTriangle className="w-5 h-5 text-rose-600" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-rose-300 flex items-center gap-2">
+              <h4 className="text-sm font-bold text-rose-900 flex items-center gap-2 flex-wrap">
                 <span>Peringatan Audit: Jumlah Telur Terjual Melebihi Catatan Panen Layak Jual</span>
-                <span className="text-xs font-mono bg-rose-500/30 text-rose-200 px-2 py-0.5 rounded-md border border-rose-500/40">
+                <span className="text-xs font-mono font-bold bg-rose-200/80 text-rose-900 px-2 py-0.5 rounded-md border border-rose-300">
                   Defisit {formatNumber(Math.abs(summary.stok_tersedia))} Butir
                 </span>
               </h4>
-              <p className="text-xs text-rose-200/80 mt-1 leading-relaxed">
+              <p className="text-xs text-rose-800 mt-1 leading-relaxed">
                 Peringatan Audit: Jumlah telur terjual melebihi total catatan panen layak jual. Periksa riwayat input produksi atau penjualan.
                 Kemungkinan terjadi salah input kuantitas transaksi penjualan atau ada catatan panen harian yang belum tercatat di sistem.
               </p>
@@ -223,135 +187,138 @@ export function StokTelurPage() {
       )}
 
       {/* 3 KPI Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
         {/* Card 1: Stok Telur Tersedia */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-cyan-950/30 via-slate-900/80 to-slate-900/60 border border-cyan-500/30 shadow-lg shadow-cyan-950/20 relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
-              <Boxes className="w-5 h-5" />
+        <Card className="p-5 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-700">
+                <Boxes className="w-5 h-5" />
+              </div>
+              {summary ? renderStatusBadge(summary.status_stok) : <div className="h-6 w-20 bg-surface-muted animate-pulse rounded-full" />}
             </div>
-            {summary ? renderStatusBadge(summary.status_stok) : <div className="h-6 w-20 bg-slate-800 animate-pulse rounded-full" />}
+
+            <p className="text-xs text-content-secondary font-bold uppercase tracking-wider">Stok Telur Tersedia (Gudang)</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <h3 className={`text-3xl font-black tracking-tight font-mono ${summary && summary.stok_tersedia < 0 ? 'text-rose-700' : 'text-content-primary'
+                }`}>
+                {summary ? formatNumber(summary.stok_tersedia) : '...'}
+              </h3>
+              <span className="text-xs text-content-secondary font-medium">Butir Siap Jual</span>
+            </div>
           </div>
 
-          <p className="text-xs text-slate-400 font-medium">Stok Telur Tersedia (Gudang)</p>
-          <div className="mt-1 flex items-baseline gap-2">
-            <h3 className={`text-3xl font-black tracking-tight font-mono ${
-              summary && summary.stok_tersedia < 0 ? 'text-rose-400' : 'text-white'
-            }`}>
-              {summary ? formatNumber(summary.stok_tersedia) : '...'}
-            </h3>
-            <span className="text-xs text-slate-400 font-medium">Butir Siap Jual</span>
-          </div>
-
-          {/* Sub-label Representasi Fisik */}
-          <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-400 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-cyan-400" />
+          <div className="mt-4 pt-3 border-t border-border-subtle space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-content-secondary flex items-center gap-1.5 font-medium">
+                <Layers className="w-3.5 h-3.5 text-cyan-600" />
                 Estimasi Rak/Tray:
               </span>
-              <span className="font-mono font-semibold text-cyan-300">
+              <span className="font-mono font-bold text-cyan-800">
                 {summary ? `~${summary.tray} Tray + ${summary.butir_eceran} Butir` : '...'}
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-400 flex items-center gap-1.5">
-                <Scale className="w-3.5 h-3.5 text-amber-400" />
+            <div className="flex items-center justify-between">
+              <span className="text-content-secondary flex items-center gap-1.5 font-medium">
+                <Scale className="w-3.5 h-3.5 text-amber-600" />
                 Estimasi Bobot Fisik:
               </span>
-              <span className="font-mono font-semibold text-amber-300">
+              <span className="font-mono font-bold text-amber-800">
                 {summary ? `~${summary.estimasi_kg} kg` : '...'}
               </span>
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Card 2: Akumulasi Panen Masuk */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-950/20 via-slate-900/80 to-slate-900/60 border border-emerald-500/20 shadow-lg shadow-emerald-950/10">
-          <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <Egg className="w-5 h-5" />
+        <Card className="p-5 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
+                <Egg className="w-5 h-5" />
+              </div>
+              <Badge variant="success" size="sm" icon={<ArrowUpRight className="w-3 h-3" />}>
+                Panen Masuk
+              </Badge>
             </div>
-            <span className="text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <ArrowUpRight className="w-3 h-3" />
-              Panen Masuk
-            </span>
+
+            <p className="text-xs text-content-secondary font-bold uppercase tracking-wider">Akumulasi Telur Layak Jual</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <h3 className="text-3xl font-black tracking-tight text-content-primary font-mono">
+                {summary ? formatNumber(summary.total_layak_jual) : '...'}
+              </h3>
+              <span className="text-xs text-content-secondary font-medium">Butir Masuk</span>
+            </div>
           </div>
 
-          <p className="text-xs text-slate-400 font-medium">Akumulasi Telur Layak Jual</p>
-          <div className="mt-1 flex items-baseline gap-2">
-            <h3 className="text-3xl font-black tracking-tight text-white font-mono">
-              {summary ? formatNumber(summary.total_layak_jual) : '...'}
-            </h3>
-            <span className="text-xs text-slate-400 font-medium">Butir Masuk</span>
-          </div>
-
-          {/* Rincian Badge: Normal vs Retak */}
-          <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2 text-xs">
+          <div className="mt-4 pt-3 border-t border-border-subtle space-y-2 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Kualitas Normal:</span>
-              <span className="font-mono font-semibold text-emerald-400">
+              <span className="text-content-secondary font-medium">Kualitas Normal:</span>
+              <span className="font-mono font-bold text-emerald-700">
                 {summary ? `${formatNumber(summary.total_normal)} butir` : '...'}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Kualitas Retak (Layak):</span>
-              <span className="font-mono font-semibold text-amber-400">
+              <span className="text-content-secondary font-medium">Kualitas Retak (Layak):</span>
+              <span className="font-mono font-bold text-amber-700">
                 {summary ? `${formatNumber(summary.total_retak)} butir` : '...'}
               </span>
             </div>
-            <div className="text-[11px] text-slate-500 pt-0.5">
+            <div className="text-[11px] text-content-muted pt-0.5">
               Total Panen Kotor: {summary ? formatNumber(summary.total_produksi) : '...'} butir
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Card 3: Akumulasi Pengurangan */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-950/20 via-slate-900/80 to-slate-900/60 border border-purple-500/20 shadow-lg shadow-purple-950/10">
-          <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-              <TrendingDown className="w-5 h-5" />
+        <Card className="p-5 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-700">
+                <TrendingDown className="w-5 h-5" />
+              </div>
+              <Badge variant="indigo" size="sm" icon={<ArrowDownRight className="w-3 h-3" />}>
+                Aliran Keluar
+              </Badge>
             </div>
-            <span className="text-[10px] font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <ArrowDownRight className="w-3 h-3" />
-              Aliran Keluar
-            </span>
+
+            <p className="text-xs text-content-secondary font-bold uppercase tracking-wider">Akumulasi Pengurangan</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <h3 className="text-3xl font-black tracking-tight text-content-primary font-mono">
+                {summary ? formatNumber(summary.total_terjual + summary.total_rusak) : '...'}
+              </h3>
+              <span className="text-xs text-content-secondary font-medium">Butir Keluar / Rusak</span>
+            </div>
           </div>
 
-          <p className="text-xs text-slate-400 font-medium">Akumulasi Pengurangan</p>
-          <div className="mt-1 flex items-baseline gap-2">
-            <h3 className="text-3xl font-black tracking-tight text-white font-mono">
-              {summary ? formatNumber(summary.total_terjual + summary.total_rusak) : '...'}
-            </h3>
-            <span className="text-xs text-slate-400 font-medium">Butir Keluar / Rusak</span>
-          </div>
-
-          {/* Rincian Badge: Terjual vs Rusak */}
-          <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2 text-xs">
+          <div className="mt-4 pt-3 border-t border-border-subtle space-y-2 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Terjual Komersial:</span>
-              <span className="font-mono font-semibold text-purple-300">
+              <span className="text-content-secondary font-medium">Terjual Komersial:</span>
+              <span className="font-mono font-bold text-purple-700">
                 {summary ? `${formatNumber(summary.total_terjual)} butir` : '...'}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Rusak/Pecah Panen:</span>
-              <span className="font-mono font-semibold text-rose-400">
+              <span className="text-content-secondary font-medium">Rusak/Pecah Panen:</span>
+              <span className="font-mono font-bold text-rose-700">
                 {summary ? `${formatNumber(summary.total_rusak)} butir` : '...'}
               </span>
             </div>
-            <div className="text-[11px] text-slate-500 pt-0.5">
-              Afkir dibuang & tidak masuk stok siap jual
+            <div className="text-[11px] text-content-muted pt-0.5">
+              Afkir dibuang &amp; tidak masuk stok siap jual
             </div>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Filter Bar Preset & Tanggal */}
-      <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <Card className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Preset Buttons */}
-        <div className="flex flex-wrap items-center gap-1.5 bg-slate-950/60 p-1 rounded-xl border border-slate-800/80 text-xs">
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="text-xs text-content-secondary font-bold uppercase tracking-wider mr-1">
+            Rentang:
+          </span>
           {[
             { id: 'all', label: 'Semua Waktu' },
             { id: 'this_month', label: 'Bulan Ini' },
@@ -363,11 +330,10 @@ export function StokTelurPage() {
             <button
               key={p.id}
               onClick={() => handlePresetChange(p.id)}
-              className={`px-3 py-1.5 rounded-lg transition font-medium ${
-                datePreset === p.id
-                  ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-semibold'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
+              className={`px-3 py-2 min-h-[44px] rounded-lg transition font-bold cursor-pointer ${datePreset === p.id
+                ? 'bg-brand text-white shadow-xs'
+                : 'bg-surface-muted text-content-secondary hover:text-content-primary border border-border-subtle'
+                }`}
             >
               {p.label}
             </button>
@@ -377,168 +343,243 @@ export function StokTelurPage() {
         {/* Date Inputs if Custom */}
         {datePreset === 'custom' && (
           <div className="flex items-center gap-2 text-xs">
-            <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white">
-              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="bg-transparent focus:outline-none"
-              />
-            </div>
-            <span className="text-slate-500">s/d</span>
-            <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white">
-              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="bg-transparent focus:outline-none"
-              />
-            </div>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="bg-surface-page border border-border-subtle rounded-xl px-2.5 py-2 min-h-[44px] text-content-primary text-xs focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+            <span className="text-content-secondary font-medium">s/d</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="bg-surface-page border border-border-subtle rounded-xl px-2.5 py-2 min-h-[44px] text-content-primary text-xs focus:outline-none focus:ring-2 focus:ring-brand"
+            />
           </div>
         )}
-      </div>
+      </Card>
 
-      {/* Stock Ledger Mutasi Table */}
-      <div className="rounded-2xl bg-slate-900/80 border border-slate-800 overflow-hidden shadow-xl">
-        <div className="p-5 border-b border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h3 className="font-bold text-white text-base flex items-center gap-2">
-              <Layers className="w-4 h-4 text-cyan-400" />
-              <span>Buku Mutasi &amp; Saldo Berjalan (Stock Ledger)</span>
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Aliran telur masuk (panen), telur rusak (pecah), dan telur keluar (penjualan) berurutan kronologis.
-            </p>
+      {/* Stock Ledger Mutasi Records (Table on Desktop >= md, Card List on Mobile < md) */}
+      {loading ? (
+        <div className="py-16 flex flex-col items-center justify-center gap-3 text-content-muted">
+          <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-medium">Memuat deret mutasi ledger...</p>
+        </div>
+      ) : ledgerData.items.length === 0 ? (
+        <EmptyState
+          icon={<Package className="w-8 h-8 text-brand" />}
+          title="Belum Ada Catatan Mutasi"
+          description="Catat panen pada modul Produksi Telur atau transaksi pada Penjualan untuk mengisi mutasi ledger gudang."
+        />
+      ) : (
+        <>
+          {/* DESKTOP TABLE VIEW (hidden on mobile < md) */}
+          <div className="hidden md:block border border-border-subtle rounded-xl bg-white overflow-hidden shadow-xs">
+            <div className="p-4 border-b border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-content-primary text-base flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-brand" />
+                  <span>Buku Mutasi &amp; Saldo Berjalan (Stock Ledger)</span>
+                </h3>
+                <p className="text-xs text-content-secondary mt-0.5">
+                  Aliran telur masuk (panen), telur rusak (pecah), dan telur keluar (penjualan) berurutan kronologis.
+                </p>
+              </div>
+
+              {startDate && (
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-muted border border-border-subtle text-xs">
+                  <Clock className="w-3.5 h-3.5 text-content-secondary" />
+                  <span className="text-content-secondary font-medium">Saldo Awal Terbawa:</span>
+                  <span className="font-mono font-bold text-content-primary">
+                    {formatNumber(ledgerData.saldo_awal)} butir
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-border-subtle bg-surface-muted text-content-secondary uppercase tracking-wider font-bold text-[10px]">
+                  <th className="py-3 px-4">Tanggal</th>
+                  <th className="py-3 px-4 text-right">Telur Masuk (Layak)</th>
+                  <th className="py-3 px-4 text-right">Telur Rusak (Pecah)</th>
+                  <th className="py-3 px-4 text-right">Telur Keluar (Terjual)</th>
+                  <th className="py-3 px-4 text-right">Netto Harian</th>
+                  <th className="py-3 px-4 text-right">Saldo Akhir</th>
+                  <th className="py-3 px-4 text-center">Status Harian</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-subtle">
+                {ledgerData.items.map((row, idx) => (
+                  <tr key={`${row.tanggal}-${idx}`} className="hover:bg-slate-50 transition">
+                    {/* Tanggal */}
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <div className="font-bold text-content-primary">{formatDisplayDate(row.tanggal)}</div>
+                      <div className="text-[10px] text-content-muted font-mono">{row.tanggal}</div>
+                    </td>
+
+                    {/* Telur Masuk Layak */}
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                      {row.masuk_layak > 0 ? (
+                        <div>
+                          <span className="font-mono font-bold text-emerald-700 text-sm">
+                            +{formatNumber(row.masuk_layak)}
+                          </span>
+                          <div className="text-[10px] text-content-muted">
+                            N: {formatNumber(row.masuk_normal)} | R: {formatNumber(row.masuk_retak)}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-content-muted font-mono">-</span>
+                      )}
+                    </td>
+
+                    {/* Telur Rusak (Pecah) */}
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                      {row.rusak_pecah > 0 ? (
+                        <span className="font-mono font-bold text-rose-700">
+                          {formatNumber(row.rusak_pecah)}
+                        </span>
+                      ) : (
+                        <span className="text-content-muted font-mono">-</span>
+                      )}
+                    </td>
+
+                    {/* Telur Keluar (Terjual) */}
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                      {row.keluar_terjual > 0 ? (
+                        <span className="font-mono font-bold text-purple-700 text-sm">
+                          -{formatNumber(row.keluar_terjual)}
+                        </span>
+                      ) : (
+                        <span className="text-content-muted font-mono">-</span>
+                      )}
+                    </td>
+
+                    {/* Perubahan Netto */}
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap font-mono font-bold">
+                      {row.perubahan_netto > 0 ? (
+                        <span className="text-emerald-700">+{formatNumber(row.perubahan_netto)}</span>
+                      ) : row.perubahan_netto < 0 ? (
+                        <span className="text-rose-700">{formatNumber(row.perubahan_netto)}</span>
+                      ) : (
+                        <span className="text-content-muted">0</span>
+                      )}
+                    </td>
+
+                    {/* Saldo Akhir Gudang */}
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                      <span className={`font-mono font-black text-sm ${row.saldo_akhir < 0 ? 'text-rose-700' : 'text-content-primary'
+                        }`}>
+                        {formatNumber(row.saldo_akhir)}
+                      </span>
+                      <span className="text-[11px] text-content-muted ml-1 font-normal">butir</span>
+                    </td>
+
+                    {/* Status Harian */}
+                    <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                      {renderStatusBadge(row.status_harian)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
-          {startDate && (
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-slate-400">Saldo Awal Terbawa:</span>
-              <span className="font-mono font-bold text-cyan-400">
-                {formatNumber(ledgerData.saldo_awal)} butir
+          {/* MOBILE CARD LIST VIEW (hidden on desktop >= md) */}
+          <div className="md:hidden space-y-3">
+            {/* Header Data Tabel Versi Mobile */}
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-brand" />
+                <h3 className="font-bold text-content-primary text-sm">
+                  Buku Mutasi Stok Gudang
+                </h3>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full bg-surface-muted text-content-secondary text-[11px] font-bold border border-border-subtle">
+                {ledgerData.items.length} Baris
               </span>
             </div>
-          )}
-        </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-slate-800 bg-slate-950/60 text-slate-400 uppercase tracking-wider font-semibold">
-                <th className="py-3 px-4">Tanggal</th>
-                <th className="py-3 px-4 text-right">Telur Masuk (Layak)</th>
-                <th className="py-3 px-4 text-right">Telur Rusak (Pecah)</th>
-                <th className="py-3 px-4 text-right">Telur Keluar (Terjual)</th>
-                <th className="py-3 px-4 text-right">Netto Harian</th>
-                <th className="py-3 px-4 text-right">Saldo Akhir</th>
-                <th className="py-3 px-4 text-center">Status Harian</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {loading ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-                      <span>Memuat deret mutasi ledger...</span>
+            {startDate && (
+              <div className="flex items-center justify-between p-3 rounded-xl bg-surface-muted border border-border-subtle text-xs">
+                <div className="flex items-center gap-1.5 text-content-secondary">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span className="font-medium">Saldo Awal Terbawa:</span>
+                </div>
+                <span className="font-mono font-bold text-content-primary">
+                  {formatNumber(ledgerData.saldo_awal)} butir
+                </span>
+              </div>
+            )}
+
+            {/* Daftar Kartu Mutasi */}
+            <div className="flex flex-col gap-3">
+              {ledgerData.items.map((row, idx) => (
+                <Card key={`${row.tanggal}-${idx}`} className="p-4 space-y-3">
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-2 border-b border-border-subtle pb-2.5">
+                    <div>
+                      <h4 className="font-bold text-sm text-content-primary">
+                        {formatDisplayDate(row.tanggal)}
+                      </h4>
+                      <p className="text-[11px] font-mono text-content-muted mt-0.5">{row.tanggal}</p>
                     </div>
-                  </td>
-                </tr>
-              ) : ledgerData.items.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <Package className="w-8 h-8 text-slate-600" />
-                      <p className="text-slate-400 font-medium">Belum ada catatan mutasi produksi atau penjualan.</p>
-                      <p className="text-xs text-slate-600">Catat panen pada modul Produksi Telur atau transaksi pada Penjualan.</p>
+                    {renderStatusBadge(row.status_harian)}
+                  </div>
+
+                  {/* Body Details */}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-surface-page p-2 rounded-lg border border-border-subtle">
+                      <span className="text-[11px] text-content-secondary block">Masuk (Layak):</span>
+                      <span className="font-mono font-bold text-sm text-emerald-700">
+                        +{formatNumber(row.masuk_layak)}
+                      </span>
+                      <div className="text-[10px] text-content-muted">
+                        N: {formatNumber(row.masuk_normal)} | R: {formatNumber(row.masuk_retak)}
+                      </div>
                     </div>
-                  </td>
-                </tr>
-              ) : (
-                ledgerData.items.map((row, idx) => {
-                  return (
-                    <tr key={`${row.tanggal}-${idx}`} className="hover:bg-slate-800/40 transition">
-                      {/* Tanggal */}
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <div className="font-medium text-white">{formatDisplayDate(row.tanggal)}</div>
-                        <div className="text-[10px] text-slate-500 font-mono">{row.tanggal}</div>
-                      </td>
 
-                      {/* Telur Masuk Layak */}
-                      <td className="py-3 px-4 text-right whitespace-nowrap">
-                        {row.masuk_layak > 0 ? (
-                          <div>
-                            <span className="font-mono font-bold text-emerald-400 text-sm">
-                              +{formatNumber(row.masuk_layak)}
-                            </span>
-                            <div className="text-[10px] text-slate-400">
-                              N: {formatNumber(row.masuk_normal)} | R: {formatNumber(row.masuk_retak)}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-slate-600 font-mono">-</span>
-                        )}
-                      </td>
+                    <div className="bg-surface-page p-2 rounded-lg border border-border-subtle">
+                      <span className="text-[11px] text-content-secondary block">Keluar (Terjual):</span>
+                      <span className="font-mono font-bold text-sm text-purple-700">
+                        {row.keluar_terjual > 0 ? `-${formatNumber(row.keluar_terjual)}` : '0'}
+                      </span>
+                    </div>
 
-                      {/* Telur Rusak (Pecah) */}
-                      <td className="py-3 px-4 text-right whitespace-nowrap">
-                        {row.rusak_pecah > 0 ? (
-                          <span className="font-mono font-medium text-rose-400">
-                            {formatNumber(row.rusak_pecah)}
-                          </span>
-                        ) : (
-                          <span className="text-slate-600 font-mono">-</span>
-                        )}
-                      </td>
+                    <div className="bg-surface-page p-2 rounded-lg border border-border-subtle">
+                      <span className="text-[11px] text-content-secondary block">Pecah / Rusak:</span>
+                      <span className="font-mono font-bold text-rose-700">
+                        {formatNumber(row.rusak_pecah)} butir
+                      </span>
+                    </div>
 
-                      {/* Telur Keluar (Terjual) */}
-                      <td className="py-3 px-4 text-right whitespace-nowrap">
-                        {row.keluar_terjual > 0 ? (
-                          <span className="font-mono font-bold text-purple-400 text-sm">
-                            -{formatNumber(row.keluar_terjual)}
-                          </span>
-                        ) : (
-                          <span className="text-slate-600 font-mono">-</span>
-                        )}
-                      </td>
-
-                      {/* Perubahan Netto */}
-                      <td className="py-3 px-4 text-right whitespace-nowrap font-mono font-semibold">
-                        {row.perubahan_netto > 0 ? (
-                          <span className="text-emerald-400">+{formatNumber(row.perubahan_netto)}</span>
-                        ) : row.perubahan_netto < 0 ? (
-                          <span className="text-rose-400">{formatNumber(row.perubahan_netto)}</span>
-                        ) : (
-                          <span className="text-slate-500">0</span>
-                        )}
-                      </td>
-
-                      {/* Saldo Akhir Gudang */}
-                      <td className="py-3 px-4 text-right whitespace-nowrap">
-                        <span className={`font-mono font-bold text-sm ${
-                          row.saldo_akhir < 0 ? 'text-rose-400' : 'text-cyan-300'
+                    <div className="bg-surface-page p-2 rounded-lg border border-border-subtle">
+                      <span className="text-[11px] text-content-secondary block">Netto Harian:</span>
+                      <span className={`font-mono font-bold ${row.perubahan_netto >= 0 ? 'text-emerald-700' : 'text-rose-700'
                         }`}>
-                          {formatNumber(row.saldo_akhir)}
-                        </span>
-                        <span className="text-[10px] text-slate-500 ml-1">butir</span>
-                      </td>
+                        {row.perubahan_netto >= 0 ? `+${formatNumber(row.perubahan_netto)}` : formatNumber(row.perubahan_netto)}
+                      </span>
+                    </div>
+                  </div>
 
-                      {/* Status Harian */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        {renderStatusBadge(row.status_harian)}
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  {/* Footer: Saldo Akhir */}
+                  <div className="pt-2 border-t border-border-subtle flex items-center justify-between text-xs">
+                    <span className="text-content-secondary font-medium">Saldo Akhir Gudang:</span>
+                    <span className={`font-mono font-black text-sm ${row.saldo_akhir < 0 ? 'text-rose-700' : 'text-content-primary'
+                      }`}>
+                      {formatNumber(row.saldo_akhir)} butir
+                    </span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
+
 export default StokTelurPage

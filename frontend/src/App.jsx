@@ -9,11 +9,11 @@ import { StokTelurPage } from './pages/StokTelurPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { ExportReportModal } from './components/ExportReportModal'
+import { BottomNav } from './components/navigation/BottomNav'
 import {
   LayoutDashboard,
   Home,
   Egg,
-  TrendingDown,
   Receipt,
   ShoppingCart,
   Boxes,
@@ -21,8 +21,6 @@ import {
   FileSpreadsheet,
   LogOut,
   User as UserIcon,
-  ShieldCheck,
-  ArrowRight,
 } from 'lucide-react'
 
 function MainLayout() {
@@ -31,34 +29,34 @@ function MainLayout() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between">
+    <div className="min-h-screen bg-surface-page text-content-primary flex flex-col justify-between">
       {/* Top Header */}
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+      <header className="border-b border-border-subtle bg-white/95 backdrop-blur sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-6">
             <div
               onClick={() => setActiveTab('dashboard')}
               className="flex items-center space-x-3 cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20">
+              <div className="w-10 h-10 rounded-xl bg-brand flex items-center justify-center text-white font-black text-xl shadow-md shadow-brand/20">
                 ST
               </div>
               <div>
-                <h1 className="font-bold text-base leading-tight tracking-tight text-white flex items-center gap-2">
+                <h1 className="font-bold text-base leading-tight tracking-tight text-content-primary flex items-center gap-2">
                   SiTernak
                 </h1>
-                <p className="text-[11px] text-slate-400 font-medium">Sistem Peternakan Ayam Petelur</p>
+                <p className="text-[11px] text-content-secondary font-medium">Sistem Peternakan Ayam Petelur</p>
               </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <nav className="hidden md:flex items-center space-x-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800/80 text-xs">
+            {/* Navigation Tabs (Desktop >= md) */}
+            <nav className="hidden md:flex items-center space-x-1 bg-surface-muted/60 p-1 rounded-xl border border-border-subtle text-xs">
               <button
                 onClick={() => setActiveTab('dashboard')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium cursor-pointer ${
                   activeTab === 'dashboard'
-                    ? 'bg-slate-800 text-white font-semibold'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-white text-content-primary font-bold shadow-xs border border-border-subtle'
+                    : 'text-content-secondary hover:text-content-primary hover:bg-white/60'
                 }`}
               >
                 <LayoutDashboard className="w-3.5 h-3.5" />
@@ -67,10 +65,10 @@ function MainLayout() {
 
               <button
                 onClick={() => setActiveTab('analitik')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium cursor-pointer ${
                   activeTab === 'analitik'
-                    ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-semibold'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-white text-content-primary font-bold shadow-xs border border-border-subtle'
+                    : 'text-content-secondary hover:text-content-primary hover:bg-white/60'
                 }`}
               >
                 <BarChart3 className="w-3.5 h-3.5" />
@@ -79,10 +77,10 @@ function MainLayout() {
 
               <button
                 onClick={() => setActiveTab('kandang')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium cursor-pointer ${
                   activeTab === 'kandang'
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-white text-content-primary font-bold shadow-xs border border-border-subtle'
+                    : 'text-content-secondary hover:text-content-primary hover:bg-white/60'
                 }`}
               >
                 <Home className="w-3.5 h-3.5" />
@@ -91,10 +89,10 @@ function MainLayout() {
 
               <button
                 onClick={() => setActiveTab('produksi-telur')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium cursor-pointer ${
                   activeTab === 'produksi-telur'
-                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-white text-content-primary font-bold shadow-xs border border-border-subtle'
+                    : 'text-content-secondary hover:text-content-primary hover:bg-white/60'
                 }`}
               >
                 <Egg className="w-3.5 h-3.5" />
@@ -103,10 +101,10 @@ function MainLayout() {
 
               <button
                 onClick={() => setActiveTab('pengeluaran')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium cursor-pointer ${
                   activeTab === 'pengeluaran'
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-white text-content-primary font-bold shadow-xs border border-border-subtle'
+                    : 'text-content-secondary hover:text-content-primary hover:bg-white/60'
                 }`}
               >
                 <Receipt className="w-3.5 h-3.5" />
@@ -115,10 +113,10 @@ function MainLayout() {
 
               <button
                 onClick={() => setActiveTab('penjualan')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium cursor-pointer ${
                   activeTab === 'penjualan'
-                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30 font-semibold'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-white text-content-primary font-bold shadow-xs border border-border-subtle'
+                    : 'text-content-secondary hover:text-content-primary hover:bg-white/60'
                 }`}
               >
                 <ShoppingCart className="w-3.5 h-3.5" />
@@ -127,10 +125,10 @@ function MainLayout() {
 
               <button
                 onClick={() => setActiveTab('stok-telur')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition font-medium cursor-pointer ${
                   activeTab === 'stok-telur'
-                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-semibold'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-white text-content-primary font-bold shadow-xs border border-border-subtle'
+                    : 'text-content-secondary hover:text-content-primary hover:bg-white/60'
                 }`}
               >
                 <Boxes className="w-3.5 h-3.5" />
@@ -140,32 +138,32 @@ function MainLayout() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Ekspor Laporan Bulanan Button */}
+            {/* Ekspor Laporan Bulanan Button (Desktop) */}
             <button
               onClick={() => setIsExportModalOpen(true)}
               title="Ekspor Laporan Bulanan (Excel & PDF)"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs font-semibold transition cursor-pointer"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-semibold transition cursor-pointer"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Ekspor Laporan</span>
+              <span>Ekspor Laporan</span>
             </button>
 
             {/* User profile & Logout */}
-            <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
-              <div className="flex items-center gap-2 bg-slate-800/60 border border-slate-700/80 px-3 py-1.5 rounded-xl">
-                <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold">
+            <div className="flex items-center gap-2 pl-2 border-l border-border-subtle">
+              <div className="flex items-center gap-2 bg-surface-muted px-3 py-1.5 rounded-xl border border-border-subtle">
+                <div className="w-6 h-6 rounded-full bg-brand-light text-brand flex items-center justify-center text-xs font-bold">
                   <UserIcon className="w-3.5 h-3.5" />
                 </div>
                 <div className="text-left">
-                  <p className="text-xs font-semibold text-white leading-none">{user?.username || 'Owner'}</p>
-                  <p className="text-[10px] text-emerald-400 font-medium leading-none mt-0.5">Admin</p>
+                  <p className="text-xs font-semibold text-content-primary leading-none">{user?.username || 'Owner'}</p>
+                  <p className="text-[10px] text-brand font-medium leading-none mt-0.5">Admin</p>
                 </div>
               </div>
 
               <button
                 onClick={logout}
                 title="Keluar dari akun"
-                className="p-2 rounded-xl bg-slate-800/80 hover:bg-rose-500/20 border border-slate-700 hover:border-rose-500/30 text-slate-400 hover:text-rose-400 transition"
+                className="p-2 rounded-xl text-content-muted hover:text-rose-600 hover:bg-rose-50 border border-border-subtle transition cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -174,8 +172,8 @@ function MainLayout() {
         </div>
       </header>
 
-      {/* Main Content View */}
-      <main className="max-w-6xl mx-auto px-4 py-8 flex-1 w-full">
+      {/* Main Content View with mobile bottom nav compensation padding (pb-24) */}
+      <main className="max-w-6xl mx-auto px-4 py-6 md:py-8 pb-24 md:pb-8 flex-1 w-full">
         {activeTab === 'dashboard' && (
           <DashboardPage onNavigate={setActiveTab} />
         )}
@@ -187,14 +185,21 @@ function MainLayout() {
         {activeTab === 'stok-telur' && <StokTelurPage />}
       </main>
 
+      {/* Mobile Bottom Navigation (< md) */}
+      <BottomNav
+        activeTab={activeTab}
+        onNavigate={setActiveTab}
+        onOpenExportModal={() => setIsExportModalOpen(true)}
+      />
+
       {/* Modal Ekspor Laporan Bulanan */}
       <ExportReportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
       />
 
-      {/* Footer */}
-      <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
+      {/* Footer (Desktop only) */}
+      <footer className="border-t border-border-subtle py-6 text-center text-xs text-content-muted hidden md:block">
         <p>© 2026 SiTernak - Sistem Manajemen Peternakan Ayam Petelur.</p>
       </footer>
     </div>

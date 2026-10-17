@@ -22,19 +22,21 @@ import {
   Layers,
   AlertTriangle,
   FileText,
-  RotateCcw,
   Filter,
-  SlidersHorizontal,
   TrendingUp,
 } from 'lucide-react'
-
-// Helper universal untuk format tanggal lokal YYYY-MM-DD
-export function formatLocalDate(d = new Date()) {
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
+import {
+  formatLocalDate,
+  formatDisplayDate,
+  formatNumber,
+} from '../utils/formatters'
+import {
+  Card,
+  Badge,
+  Modal,
+  PageHeader,
+  EmptyState,
+} from '../components/common'
 
 // Helper date formatter for presets
 export function calculatePresetDates(preset) {
@@ -68,7 +70,7 @@ export function ProduksiTelurPage() {
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
 
-  // Filter States - Diinisialisasi sinkron dengan default 7 hari terakhir (anti desync on mount)
+  // Filter States - Sinkron dengan default 7 hari terakhir
   const [filterKandang, setFilterKandang] = useState('semua')
   const [datePreset, setDatePreset] = useState('7days')
   const [startDate, setStartDate] = useState(defaultDates.start)
@@ -125,7 +127,6 @@ export function ProduksiTelurPage() {
 
   // Load Riwayat Produksi & Analytics with active server-side filters
   const loadData = useCallback(async () => {
-    // Guard: Jika bukan preset 'semua', jangan fetch jika tanggal belum lengkap
     if (datePreset !== 'semua' && (!startDate || !endDate)) {
       return
     }
@@ -158,7 +159,6 @@ export function ProduksiTelurPage() {
   useEffect(() => {
     let isCurrent = true
 
-    // Guard: Mencegah fetch query 'semua waktu' yang tidak diinginkan
     if (datePreset === 'custom' && (!startDate || !endDate)) {
       return
     }
@@ -413,108 +413,106 @@ export function ProduksiTelurPage() {
       : '0.00'
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner / Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-800">
-        <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
-            <Egg className="w-6 h-6 text-amber-400" />
-            Produksi & Performa HDP Telur
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Monitoring performa Hen Day Production (HDP%), visualisasi grafik time-series, dan manajemen panen harian.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5">
+    <div className="space-y-5">
+      {/* Top Page Header */}
+      <PageHeader
+        title="Produksi & Performa HDP Telur"
+        subtitle="Monitoring Hen Day Production (HDP%), visualisasi grafik time-series, dan manajemen panen harian."
+        action={
           <button
             onClick={() => openCreateModal()}
             disabled={kandangList.length === 0}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/25 transition active:scale-95 disabled:opacity-50"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-brand hover:bg-brand-hover text-white font-bold text-xs shadow-xs transition active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Catat Produksi Telur</span>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Mini KPI Summary Cards (Aggregated from Filter) */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <Card className="p-4 flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-400">Total Butir Normal</p>
-            <p className="text-2xl font-bold text-emerald-400 mt-1">
-              {totalNormal.toLocaleString('id-ID')} <span className="text-xs text-slate-400 font-normal">butir</span>
+            <p className="text-xs font-semibold text-content-secondary">Butir Normal</p>
+            <p className="text-xl sm:text-2xl font-black text-emerald-700 mt-1 font-mono">
+              {formatNumber(totalNormal)}{' '}
+              <span className="text-xs text-content-muted font-normal">butir</span>
             </p>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shrink-0">
             <Egg className="w-5 h-5" />
           </div>
-        </div>
+        </Card>
 
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+        <Card className="p-4 flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-400">Cangkang Retak</p>
-            <p className="text-2xl font-bold text-amber-400 mt-1">
-              {totalRetak.toLocaleString('id-ID')} <span className="text-xs text-slate-400 font-normal">butir</span>
+            <p className="text-xs font-semibold text-content-secondary">Cangkang Retak</p>
+            <p className="text-xl sm:text-2xl font-black text-amber-700 mt-1 font-mono">
+              {formatNumber(totalRetak)}{' '}
+              <span className="text-xs text-content-muted font-normal">butir</span>
             </p>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shrink-0">
             <AlertTriangle className="w-5 h-5" />
           </div>
-        </div>
+        </Card>
 
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+        <Card className="p-4 flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-400">Pecah / Rusak</p>
-            <p className="text-2xl font-bold text-rose-400 mt-1">
-              {totalPecah.toLocaleString('id-ID')} <span className="text-xs text-slate-400 font-normal">butir</span>
+            <p className="text-xs font-semibold text-content-secondary">Pecah / Rusak</p>
+            <p className="text-xl sm:text-2xl font-black text-rose-700 mt-1 font-mono">
+              {formatNumber(totalPecah)}{' '}
+              <span className="text-xs text-content-muted font-normal">butir</span>
             </p>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+          <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
             <X className="w-5 h-5" />
           </div>
-        </div>
+        </Card>
 
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+        <Card className="p-4 flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-400">Total Akumulasi</p>
-            <p className="text-2xl font-bold text-white mt-1">
-              {totalSemuaButir.toLocaleString('id-ID')} <span className="text-xs text-slate-400 font-normal">butir</span>
+            <p className="text-xs font-semibold text-content-secondary">Total Panen</p>
+            <p className="text-xl sm:text-2xl font-black text-content-primary mt-1 font-mono">
+              {formatNumber(totalSemuaButir)}{' '}
+              <span className="text-xs text-content-muted font-normal">butir</span>
             </p>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shrink-0">
             <Layers className="w-5 h-5" />
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Notifications */}
       {error && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-3 text-rose-400 text-sm">
-          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-          <p>{error}</p>
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-3 text-rose-700 text-xs shadow-xs">
+          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-600" />
+          <p className="font-medium">{error}</p>
         </div>
       )}
 
       {successMsg && (
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3 text-emerald-400 text-sm">
-          <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
-          <p>{successMsg}</p>
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-3 text-emerald-800 text-xs shadow-xs">
+          <CheckCircle className="w-5 h-5 shrink-0 mt-0.5 text-emerald-600" />
+          <p className="font-medium">{successMsg}</p>
         </div>
       )}
 
       {/* Filter Bar Interaktif */}
-      <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3.5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <Card className="p-4 space-y-3.5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Kandang Selector */}
           <div className="flex items-center gap-2.5">
-            <Filter className="w-4 h-4 text-amber-400 shrink-0" />
-            <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Kandang:</span>
+            <Filter className="w-4 h-4 text-brand shrink-0" />
+            <span className="text-xs text-content-secondary font-bold uppercase tracking-wider">
+              Kandang:
+            </span>
             <select
               value={filterKandang}
               onChange={(e) => setFilterKandang(e.target.value)}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-medium text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="px-3 py-2 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-xs font-semibold text-content-primary focus:outline-none focus:ring-2 focus:ring-brand"
             >
               <option value="semua">Semua Kandang Aktif</option>
               {kandangList.map((k) => (
@@ -527,22 +525,24 @@ export function ProduksiTelurPage() {
 
           {/* Quick Date Presets */}
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider mr-1">Rentang:</span>
+            <span className="text-xs text-content-secondary font-bold uppercase tracking-wider mr-1">
+              Rentang:
+            </span>
             {[
               { id: 'today', label: 'Hari Ini' },
               { id: '7days', label: '7 Hari Terakhir' },
               { id: '30days', label: '30 Hari Terakhir' },
               { id: 'this_month', label: 'Bulan Ini' },
               { id: 'semua', label: 'Semua Waktu' },
-              { id: 'custom', label: 'Custom Range' },
+              { id: 'custom', label: 'Kustom' },
             ].map((p) => (
               <button
                 key={p.id}
                 onClick={() => handlePresetChange(p.id)}
-                className={`px-3 py-1.5 rounded-lg font-medium transition ${
+                className={`px-3 py-2 min-h-[44px] rounded-lg font-bold transition cursor-pointer ${
                   datePreset === p.id
-                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 font-semibold shadow-sm'
-                    : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 border border-slate-700/60'
+                    ? 'bg-brand text-white shadow-xs'
+                    : 'bg-surface-muted text-content-secondary hover:text-content-primary border border-border-subtle'
                 }`}
               >
                 {p.label}
@@ -552,29 +552,29 @@ export function ProduksiTelurPage() {
             <button
               onClick={loadData}
               title="Refresh Data"
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-white transition ml-1"
+              className="p-2.5 min-h-[44px] rounded-lg bg-surface-muted hover:bg-slate-200 border border-border-subtle text-content-secondary hover:text-content-primary transition ml-1 cursor-pointer flex items-center justify-center"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
           </div>
         </div>
 
         {/* Custom Range Inputs (Shown when 'custom' is active) */}
         {datePreset === 'custom' && (
-          <div className="pt-3 border-t border-slate-800/80 flex flex-wrap items-center gap-3 text-xs animate-fade-in">
-            <span className="text-slate-400 font-medium">Dari Tanggal:</span>
+          <div className="pt-3 border-t border-border-subtle flex flex-wrap items-center gap-3 text-xs">
+            <span className="text-content-secondary font-medium">Dari Tanggal:</span>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="px-3 py-2 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary text-xs focus:outline-none focus:ring-2 focus:ring-brand"
             />
-            <span className="text-slate-400 font-medium">Sampai:</span>
+            <span className="text-content-secondary font-medium">Sampai:</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="px-3 py-2 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary text-xs focus:outline-none focus:ring-2 focus:ring-brand"
             />
             {(startDate || endDate) && (
               <button
@@ -582,571 +582,655 @@ export function ProduksiTelurPage() {
                   setStartDate('')
                   setEndDate('')
                 }}
-                className="text-[11px] text-slate-400 hover:text-rose-400 underline transition"
+                className="text-xs text-brand hover:underline font-semibold transition cursor-pointer"
               >
                 Reset Tanggal
               </button>
             )}
           </div>
         )}
-      </div>
+      </Card>
 
-      {/* Visual Multi-Axis Performance Chart (T2.3 & T2.4) */}
+      {/* Visual Multi-Axis Performance Chart */}
       <ProduksiChart analyticsData={analyticsData} loading={loading} />
 
-      {/* Production Records Table with HDP Badge */}
+      {/* Production Records (Table on Desktop >= md, Card List on Mobile < md) */}
       {loading ? (
-        <div className="py-16 flex flex-col items-center justify-center gap-3 text-slate-400">
-          <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+        <div className="py-16 flex flex-col items-center justify-center gap-3 text-content-muted">
+          <Loader2 className="w-8 h-8 animate-spin text-brand" />
           <p className="text-sm font-medium">Memuat riwayat data produksi...</p>
         </div>
       ) : produksiList.length === 0 ? (
-        <div className="py-16 text-center border border-dashed border-slate-800 rounded-2xl bg-slate-900/30">
-          <Egg className="w-12 h-12 mx-auto text-slate-600 mb-3" />
-          <h3 className="text-base font-semibold text-slate-300">Tidak Ada Data Produksi Telur</h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-            {filterKandang !== 'semua' || startDate || endDate
+        <EmptyState
+          icon={<Egg className="w-8 h-8 text-amber-500" />}
+          title="Tidak Ada Data Produksi Telur"
+          description={
+            filterKandang !== 'semua' || startDate || endDate
               ? 'Tidak ditemukan catatan panen telur dengan kriteria filter saat ini.'
-              : 'Klik tombol "Catat Produksi Telur" untuk mulai mencatat hasil panen harian.'}
-          </p>
-        </div>
+              : 'Klik tombol "Catat Produksi Telur" untuk mulai mencatat hasil panen harian.'
+          }
+          action={
+            <button
+              onClick={() => openCreateModal()}
+              className="px-4 py-2 min-h-[44px] rounded-xl bg-brand hover:bg-brand-hover text-white text-xs font-bold shadow-xs transition cursor-pointer"
+            >
+              Catat Panen Sekarang
+            </button>
+          }
+        />
       ) : (
-        <div className="border border-slate-800 rounded-2xl bg-slate-900/80 overflow-hidden shadow-xl">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-800/80 text-slate-400 uppercase tracking-wider text-[10px] font-semibold border-b border-slate-700">
-              <tr>
-                <th className="px-4 py-3.5">Tanggal</th>
-                <th className="px-4 py-3.5">Kandang</th>
-                <th className="px-4 py-3.5 text-right">Butir Normal</th>
-                <th className="px-4 py-3.5 text-right">Cangkang Retak</th>
-                <th className="px-4 py-3.5 text-right">Pecah/Rusak</th>
-                <th className="px-4 py-3.5 text-right font-bold text-white">Total Butir</th>
-                <th className="px-4 py-3.5 text-center">HDP (%)</th>
-                <th className="px-4 py-3.5">Catatan</th>
-                <th className="px-4 py-3.5 text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/80">
-              {produksiList.map((item) => {
-                const kandangName =
-                  item.nama_kandang ||
-                  kandangList.find((k) => k.id === item.kandang_id)?.nama_kandang ||
-                  `Kandang #${item.kandang_id}`
-                const totalItem =
-                  item.total_butir ||
-                  item.jumlah_butir_normal + item.jumlah_butir_retak + item.jumlah_butir_pecah
-                const hdpVal = item.hdp_percentage !== undefined ? item.hdp_percentage : 0
-                const isAnomaly = item.is_hdp_anomaly || hdpVal > 100
+        <>
+          {/* DESKTOP TABLE VIEW (hidden on mobile < md) */}
+          <div className="hidden md:block border border-border-subtle rounded-xl bg-white overflow-hidden shadow-xs">
+            <div className="p-4 border-b border-border-subtle flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Egg className="w-4 h-4 text-brand" />
+                <h3 className="font-bold text-content-primary text-base">Riwayat Panen & Produksi Telur</h3>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full bg-surface-muted text-content-secondary text-xs font-bold">
+                {produksiList.length} Catatan
+              </span>
+            </div>
 
-                const hdpBadgeClass = isAnomaly
-                  ? 'bg-orange-500/20 text-orange-400 border-orange-500/40 ring-1 ring-orange-500/30'
-                  : hdpVal >= 85
-                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                  : hdpVal >= 70
-                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                  : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+            <table className="w-full text-left text-xs text-content-primary">
+              <thead className="bg-surface-muted text-content-secondary uppercase tracking-wider text-[10px] font-bold border-b border-border-subtle">
+                <tr>
+                  <th className="px-4 py-3.5">Tanggal</th>
+                  <th className="px-4 py-3.5">Kandang</th>
+                  <th className="px-4 py-3.5 text-right">Butir Normal</th>
+                  <th className="px-4 py-3.5 text-right">Cangkang Retak</th>
+                  <th className="px-4 py-3.5 text-right">Pecah/Rusak</th>
+                  <th className="px-4 py-3.5 text-right font-bold text-content-primary">Total Butir</th>
+                  <th className="px-4 py-3.5 text-center">HDP (%)</th>
+                  <th className="px-4 py-3.5">Catatan</th>
+                  <th className="px-4 py-3.5 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-subtle">
+                {produksiList.map((item) => {
+                  const kandangName =
+                    item.nama_kandang ||
+                    kandangList.find((k) => k.id === item.kandang_id)?.nama_kandang ||
+                    `Kandang #${item.kandang_id}`
+                  const totalItem =
+                    item.total_butir ||
+                    item.jumlah_butir_normal + item.jumlah_butir_retak + item.jumlah_butir_pecah
+                  const hdpVal = item.hdp_percentage !== undefined ? item.hdp_percentage : 0
+                  const isAnomaly = item.is_hdp_anomaly || hdpVal > 100
 
-                const hdpTooltipTitle = isAnomaly
-                  ? '⚠️ Anomali: Produksi melebihi 100% populasi ayam. Periksa kemungkinan salah ketik atau data populasi kandang.'
-                  : `Tingkat produktivitas: ${hdpVal}%`
-
-                return (
-                  <tr key={item.id} className="hover:bg-slate-800/40 transition">
-                    <td className="px-4 py-3.5 font-medium text-white">
-                      {new Date(item.tanggal).toLocaleDateString('id-ID', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </td>
-                    <td className="px-4 py-3.5 font-semibold text-amber-400">
-                      {kandangName}
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-semibold text-emerald-400">
-                      {item.jumlah_butir_normal.toLocaleString('id-ID')}
-                    </td>
-                    <td className="px-4 py-3.5 text-right">
-                      {item.jumlah_butir_retak > 0 ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[11px] font-semibold">
-                          {item.jumlah_butir_retak.toLocaleString('id-ID')}
-                        </span>
-                      ) : (
-                        <span className="text-slate-500">0</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 text-right">
-                      {item.jumlah_butir_pecah > 0 ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 text-[11px] font-semibold">
-                          {item.jumlah_butir_pecah.toLocaleString('id-ID')}
-                        </span>
-                      ) : (
-                        <span className="text-slate-500">0</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-bold text-white">
-                      {totalItem.toLocaleString('id-ID')}
-                    </td>
-                    <td className="px-4 py-3.5 text-center">
-                      <span
-                        title={hdpTooltipTitle}
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border transition ${hdpBadgeClass}`}
-                      >
-                        {isAnomaly && (
-                          <AlertTriangle className="w-3.5 h-3.5 mr-1 shrink-0 text-orange-400" />
+                  return (
+                    <tr key={item.id} className="hover:bg-slate-50 transition">
+                      <td className="px-4 py-3.5 font-bold text-content-primary">
+                        {formatDisplayDate(item.tanggal)}
+                      </td>
+                      <td className="px-4 py-3.5 font-bold text-brand">
+                        {kandangName}
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-bold text-emerald-700 font-mono">
+                        {formatNumber(item.jumlah_butir_normal)}
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-mono">
+                        {item.jumlah_butir_retak > 0 ? (
+                          <Badge variant="warning" size="sm">
+                            {formatNumber(item.jumlah_butir_retak)}
+                          </Badge>
+                        ) : (
+                          <span className="text-content-muted">0</span>
                         )}
-                        {hdpVal}%
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 text-slate-400 max-w-xs truncate">
-                      {item.catatan || '-'}
-                    </td>
-                    <td className="px-4 py-3.5 text-right">
-                      <div className="inline-flex items-center gap-1.5">
-                        <button
-                          onClick={() => openEditModal(item)}
-                          title="Edit Catatan Produksi"
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition"
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-mono">
+                        {item.jumlah_butir_pecah > 0 ? (
+                          <Badge variant="danger" size="sm">
+                            {formatNumber(item.jumlah_butir_pecah)}
+                          </Badge>
+                        ) : (
+                          <span className="text-content-muted">0</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-black text-content-primary font-mono">
+                        {formatNumber(totalItem)}
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <Badge
+                          variant={isAnomaly ? 'warning' : hdpVal >= 85 ? 'success' : hdpVal >= 70 ? 'warning' : 'danger'}
+                          size="sm"
+                          icon={isAnomaly ? <AlertTriangle className="w-3.5 h-3.5" /> : undefined}
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => openDeleteModal(item)}
-                          title="Hapus Catatan Produksi"
-                          className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                          {hdpVal}%
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3.5 text-content-secondary max-w-xs truncate">
+                        {item.catatan || '-'}
+                      </td>
+                      <td className="px-4 py-3.5 text-right">
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            onClick={() => openEditModal(item)}
+                            title="Edit Catatan Produksi"
+                            className="p-1.5 rounded-lg bg-surface-muted hover:bg-slate-200 text-content-secondary hover:text-content-primary border border-border-subtle transition cursor-pointer"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => openDeleteModal(item)}
+                            title="Hapus Catatan Produksi"
+                            className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
 
-          {/* Footer Info */}
-          <div className="px-4 py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-            <span>
-              Menampilkan <strong className="text-white">{produksiList.length}</strong> catatan produksi
-            </span>
-            <span className="text-[11px]">HDP dihitung on-the-fly dari populasi hidup</span>
+            {/* Footer Info */}
+            <div className="px-4 py-3 bg-surface-muted/50 border-t border-border-subtle flex items-center justify-between text-xs text-content-secondary font-medium">
+              <span>
+                Menampilkan <strong className="text-content-primary font-bold">{produksiList.length}</strong> catatan produksi
+              </span>
+              <span className="text-[11px] text-content-muted">HDP dihitung on-the-fly dari populasi hidup</span>
+            </div>
           </div>
-        </div>
-      )}
 
-      {/* MODAL: Catat Produksi Baru (Level 1 -> z-50) */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
-              <h3 className="font-bold text-lg text-white flex items-center gap-2">
-                <Egg className="w-5 h-5 text-amber-400" />
-                Catat Produksi Telur Harian
-              </h3>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="text-slate-400 hover:text-white transition p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
+          {/* MOBILE CARD LIST VIEW (hidden on desktop >= md) */}
+          <div className="md:hidden space-y-3">
+            {/* Header Data Tabel Versi Mobile */}
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <Egg className="w-4 h-4 text-brand" />
+                <h3 className="font-bold text-content-primary text-sm">
+                  Riwayat Panen & Produksi Telur
+                </h3>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full bg-surface-muted text-content-secondary text-[11px] font-bold border border-border-subtle">
+                {produksiList.length} Catatan
+              </span>
             </div>
 
-            {/* DUPLICATE CONFLICT WARNING BANNER (409) */}
-            {duplicateConflict && (
-              <div className="mb-4 p-4 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs space-y-2.5 animate-fade-in">
-                <div className="flex items-start gap-2 font-semibold text-amber-200">
-                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
-                  <span>Data Duplikat Terdeteksi (HTTP 409 Conflict)</span>
-                </div>
-                <p className="leading-relaxed">
-                  Data produksi telur untuk kandang ini pada tanggal{' '}
-                  <strong>{duplicateConflict.tanggal}</strong> sudah pernah dicatat. Satu kandang hanya
-                  memiliki 1 catatan produksi per tanggal.
-                </p>
-                <div className="pt-2 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSwitchToEditFromConflict}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs shadow hover:bg-amber-400 transition"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                    <span>Buka Form Edit Data Tersebut</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDuplicateConflict(null)}
-                    className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition"
-                  >
-                    Ganti Tanggal / Kandang
-                  </button>
-                </div>
-              </div>
-            )}
+            {/* Daftar Kartu Produksi */}
+            <div className="flex flex-col gap-3">
+              {produksiList.map((item) => {
+              const kandangName =
+                item.nama_kandang ||
+                kandangList.find((k) => k.id === item.kandang_id)?.nama_kandang ||
+                `Kandang #${item.kandang_id}`
+              const totalItem =
+                item.total_butir ||
+                item.jumlah_butir_normal + item.jumlah_butir_retak + item.jumlah_butir_pecah
+              const hdpVal = item.hdp_percentage !== undefined ? item.hdp_percentage : 0
+              const isAnomaly = item.is_hdp_anomaly || hdpVal > 100
 
-            {/* REALTIME SANITY CHECK WARNING BANNER (HDP > 100%) */}
-            {isCreateAnomaly && (
-              <div className="mb-4 p-3.5 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-300 text-xs space-y-1.5 animate-fade-in">
-                <div className="flex items-center gap-1.5 font-semibold text-orange-200">
-                  <AlertTriangle className="w-4 h-4 text-orange-400 shrink-0" />
-                  <span>Perhatian: Potensi Anomali Input (HDP &gt; 100%)</span>
-                </div>
-                <p className="leading-relaxed text-[11px]">
-                  Jumlah telur normal (<strong>{normalInputCreate.toLocaleString('id-ID')} butir</strong>)
-                  melebihi populasi ayam hidup di kandang ini (<strong>{createPopulasi.toLocaleString('id-ID')} ekor</strong>).
-                  Nilai HDP akan menjadi <strong className="text-orange-400 font-bold">{createHdpLive}%</strong>.
-                  Secara biologis 1 ekor ayam maksimal bertelur 1 butir/hari. Pastikan tidak ada kesalahan ketik sebelum menyimpan.
-                </p>
-              </div>
-            )}
+              return (
+                <Card key={item.id} className="p-4 space-y-3">
+                  {/* Card Header: Tanggal & Kandang + HDP Badge */}
+                  <div className="flex items-start justify-between gap-2 border-b border-border-subtle pb-2.5">
+                    <div>
+                      <h4 className="font-bold text-sm text-content-primary">
+                        {formatDisplayDate(item.tanggal)}
+                      </h4>
+                      <p className="text-xs font-semibold text-brand mt-0.5">{kandangName}</p>
+                    </div>
+                    <Badge
+                      variant={isAnomaly ? 'warning' : hdpVal >= 85 ? 'success' : hdpVal >= 70 ? 'warning' : 'danger'}
+                      size="sm"
+                      icon={isAnomaly ? <AlertTriangle className="w-3.5 h-3.5" /> : undefined}
+                    >
+                      HDP {hdpVal}%
+                    </Badge>
+                  </div>
 
-            <form onSubmit={handleCreateSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Pilih Kandang
-                  </label>
-                  <select
-                    required
-                    value={createForm.kandang_id}
-                    onChange={(e) => setCreateForm({ ...createForm, kandang_id: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  >
-                    {kandangList.map((k) => (
-                      <option key={k.id} value={k.id}>
-                        {k.nama_kandang} ({k.jumlah_saat_ini.toLocaleString('id-ID')} ekor)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Tanggal Panen
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={createForm.tanggal}
-                    onChange={(e) => setCreateForm({ ...createForm, tanggal: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-              </div>
-
-              {/* Egg Categories Inputs */}
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-3.5">
-                <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                  Kategori Butir Telur
-                </p>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-medium text-emerald-400">
-                      1. Jumlah Butir Normal (Kualitas Bagus) *
-                    </label>
-                    {createPopulasi > 0 && (
-                      <span className="text-[10px] text-slate-400">
-                        Populasi: <strong className="text-white">{createPopulasi.toLocaleString('id-ID')}</strong> ekor
+                  {/* Card Body: Details */}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-surface-page p-2 rounded-lg border border-border-subtle">
+                      <span className="text-[11px] text-content-secondary block">Telur Normal:</span>
+                      <span className="font-mono font-bold text-sm text-emerald-700">
+                        {formatNumber(item.jumlah_butir_normal)} butir
                       </span>
-                    )}
-                  </div>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    placeholder="Contoh: 850"
-                    value={createForm.jumlah_butir_normal}
-                    onChange={(e) =>
-                      setCreateForm({ ...createForm, jumlah_butir_normal: e.target.value })
-                    }
-                    className="w-full px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-amber-300 mb-1">
-                      2. Cangkang Retak
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={createForm.jumlah_butir_retak}
-                      onChange={(e) =>
-                        setCreateForm({ ...createForm, jumlah_butir_retak: e.target.value })
-                      }
-                      className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    />
+                    </div>
+                    <div className="bg-surface-page p-2 rounded-lg border border-border-subtle">
+                      <span className="text-[11px] text-content-secondary block">Total Panen:</span>
+                      <span className="font-mono font-bold text-sm text-content-primary">
+                        {formatNumber(totalItem)} butir
+                      </span>
+                    </div>
+                    <div className="bg-surface-page p-2 rounded-lg border border-border-subtle">
+                      <span className="text-[11px] text-content-secondary block">Retak:</span>
+                      <span className="font-mono font-bold text-amber-700">
+                        {formatNumber(item.jumlah_butir_retak)} butir
+                      </span>
+                    </div>
+                    <div className="bg-surface-page p-2 rounded-lg border border-border-subtle">
+                      <span className="text-[11px] text-content-secondary block">Pecah / Rusak:</span>
+                      <span className="font-mono font-bold text-rose-700">
+                        {formatNumber(item.jumlah_butir_pecah)} butir
+                      </span>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-rose-400 mb-1">
-                      3. Rusak / Pecah
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={createForm.jumlah_butir_pecah}
-                      onChange={(e) =>
-                        setCreateForm({ ...createForm, jumlah_butir_pecah: e.target.value })
-                      }
-                      className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
-                    />
+                  {item.catatan && (
+                    <div className="text-xs text-content-secondary bg-surface-muted/60 p-2 rounded-lg">
+                      <span className="font-semibold text-content-primary">Catatan:</span> {item.catatan}
+                    </div>
+                  )}
+
+                  {/* Card Actions (min-h-[44px] touch target) */}
+                  <div className="pt-2 border-t border-border-subtle grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(item)}
+                      className="min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl bg-surface-muted hover:bg-slate-200 text-content-primary text-xs font-bold border border-border-subtle transition active:scale-95 cursor-pointer"
+                    >
+                      <Edit2 className="w-4 h-4 text-brand" />
+                      <span>Edit Data</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openDeleteModal(item)}
+                      className="min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition active:scale-95 cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4 text-rose-600" />
+                      <span>Hapus</span>
+                    </button>
                   </div>
-                </div>
+                </Card>
+              )
+            })}
+            </div>
+          </div>
+        </>
+      )}
 
-                <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Total Akumulasi:</span>
-                  <span className="font-bold text-white text-sm bg-slate-800 px-3 py-1 rounded-lg border border-slate-700">
-                    {createTotalLive.toLocaleString('id-ID')} butir
-                  </span>
-                </div>
-              </div>
+      {/* ADAPTIVE MODAL: Catat Produksi Baru */}
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Catat Produksi Telur Harian"
+        subtitle="Input panen telur harian per kandang."
+        icon={<Egg className="w-5 h-5 text-amber-600" />}
+      >
+        {/* DUPLICATE CONFLICT WARNING BANNER (409) */}
+        {duplicateConflict && (
+          <div className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs space-y-2.5">
+            <div className="flex items-start gap-2 font-bold text-amber-800">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+              <span>Data Duplikat Terdeteksi (HTTP 409 Conflict)</span>
+            </div>
+            <p className="leading-relaxed">
+              Data produksi telur untuk kandang ini pada tanggal{' '}
+              <strong>{duplicateConflict.tanggal}</strong> sudah pernah dicatat. Satu kandang hanya
+              memiliki 1 catatan produksi per tanggal.
+            </p>
+            <div className="pt-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSwitchToEditFromConflict}
+                className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition cursor-pointer"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>Buka Form Edit Data Tersebut</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDuplicateConflict(null)}
+                className="px-3 py-2 min-h-[44px] rounded-lg bg-surface-muted hover:bg-slate-200 text-content-primary text-xs font-semibold transition cursor-pointer"
+              >
+                Ganti Tanggal / Kandang
+              </button>
+            </div>
+          </div>
+        )}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Catatan Tambahan (Opsional)
+        {/* REALTIME SANITY CHECK WARNING BANNER (HDP > 100%) */}
+        {isCreateAnomaly && (
+          <div className="mb-4 p-3.5 rounded-xl bg-orange-50 border border-orange-200 text-orange-900 text-xs space-y-1.5">
+            <div className="flex items-center gap-1.5 font-bold text-orange-800">
+              <AlertTriangle className="w-4 h-4 text-orange-600 shrink-0" />
+              <span>Perhatian: Potensi Anomali Input (HDP &gt; 100%)</span>
+            </div>
+            <p className="leading-relaxed text-[11px]">
+              Jumlah telur normal (<strong>{formatNumber(normalInputCreate)} butir</strong>)
+              melebihi populasi ayam hidup di kandang ini (<strong>{formatNumber(createPopulasi)} ekor</strong>).
+              Nilai HDP akan menjadi <strong className="text-orange-700 font-bold">{createHdpLive}%</strong>.
+              Secara biologis 1 ekor ayam maksimal bertelur 1 butir/hari. Pastikan tidak ada kesalahan ketik sebelum menyimpan.
+            </p>
+          </div>
+        )}
+
+        <form onSubmit={handleCreateSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-content-primary uppercase tracking-wider mb-1.5">
+                Pilih Kandang *
+              </label>
+              <select
+                required
+                value={createForm.kandang_id}
+                onChange={(e) => setCreateForm({ ...createForm, kandang_id: e.target.value })}
+                className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              >
+                {kandangList.map((k) => (
+                  <option key={k.id} value={k.id}>
+                    {k.nama_kandang} ({formatNumber(k.jumlah_saat_ini)} ekor)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-content-primary uppercase tracking-wider mb-1.5">
+                Tanggal Panen *
+              </label>
+              <input
+                type="date"
+                required
+                value={createForm.tanggal}
+                onChange={(e) => setCreateForm({ ...createForm, tanggal: e.target.value })}
+                className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              />
+            </div>
+          </div>
+
+          {/* Egg Categories Inputs */}
+          <div className="p-4 rounded-xl bg-surface-page border border-border-subtle space-y-3">
+            <p className="text-xs font-bold text-content-primary uppercase tracking-wider">
+              Kategori Butir Telur
+            </p>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-emerald-800">
+                  1. Jumlah Butir Normal (Kualitas Bagus) *
                 </label>
-                <textarea
-                  rows={2}
-                  placeholder="Kondisi pakan, suhu cuaca, atau catatan khusus lainnya"
-                  value={createForm.catatan}
-                  onChange={(e) => setCreateForm({ ...createForm, catatan: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
+                {createPopulasi > 0 && (
+                  <span className="text-[11px] text-content-secondary">
+                    Populasi: <strong className="text-content-primary">{formatNumber(createPopulasi)}</strong> ekor
+                  </span>
+                )}
               </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  disabled={submitting}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Simpan Data Produksi</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: Edit Produksi Telur (Level 2 -> z-[60]) */}
-      {showEditModal && selectedProduksi && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
-              <h3 className="font-bold text-lg text-white flex items-center gap-2">
-                <Edit2 className="w-5 h-5 text-emerald-400" />
-                Koreksi Produksi Telur #{selectedProduksi.id}
-              </h3>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="text-slate-400 hover:text-white transition p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                required
+                placeholder="Contoh: 850"
+                value={createForm.jumlah_butir_normal}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, jumlah_butir_normal: e.target.value })
+                }
+                className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-white border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              />
             </div>
 
-            {/* REALTIME SANITY CHECK WARNING BANNER (HDP > 100%) */}
-            {isEditAnomaly && (
-              <div className="mb-4 p-3.5 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-300 text-xs space-y-1.5 animate-fade-in">
-                <div className="flex items-center gap-1.5 font-semibold text-orange-200">
-                  <AlertTriangle className="w-4 h-4 text-orange-400 shrink-0" />
-                  <span>Perhatian: Potensi Anomali Koreksi (HDP &gt; 100%)</span>
-                </div>
-                <p className="leading-relaxed text-[11px]">
-                  Koreksi jumlah telur normal (<strong>{normalInputEdit.toLocaleString('id-ID')} butir</strong>)
-                  melebihi populasi ayam hidup di kandang ini (<strong>{editPopulasi.toLocaleString('id-ID')} ekor</strong>).
-                  Nilai HDP akan menjadi <strong className="text-orange-400 font-bold">{editHdpLive}%</strong>.
-                  Secara biologis 1 ekor ayam maksimal bertelur 1 butir/hari. Pastikan tidak ada kesalahan ketik sebelum menyimpan.
-                </p>
-              </div>
-            )}
-
-            <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Tanggal Panen
+                <label className="block text-xs font-semibold text-amber-800 mb-1">
+                  2. Cangkang Retak
                 </label>
                 <input
-                  type="date"
-                  required
-                  value={editForm.tanggal}
-                  onChange={(e) => setEditForm({ ...editForm, tanggal: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={createForm.jumlah_butir_retak}
+                  onChange={(e) =>
+                    setCreateForm({ ...createForm, jumlah_butir_retak: e.target.value })
+                  }
+                  className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-white border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                 />
-              </div>
-
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-3.5">
-                <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                  Koreksi Kategori Butir Telur
-                </p>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-medium text-emerald-400">
-                      1. Jumlah Butir Normal *
-                    </label>
-                    {editPopulasi > 0 && (
-                      <span className="text-[10px] text-slate-400">
-                        Populasi: <strong className="text-white">{editPopulasi.toLocaleString('id-ID')}</strong> ekor
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={editForm.jumlah_butir_normal}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, jumlah_butir_normal: e.target.value })
-                    }
-                    className="w-full px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-amber-300 mb-1">
-                      2. Cangkang Retak
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={editForm.jumlah_butir_retak}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, jumlah_butir_retak: e.target.value })
-                      }
-                      className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-rose-400 mb-1">
-                      3. Rusak / Pecah
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={editForm.jumlah_butir_pecah}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, jumlah_butir_pecah: e.target.value })
-                      }
-                      className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Total Koreksi:</span>
-                  <span className="font-bold text-white text-sm bg-slate-800 px-3 py-1 rounded-lg border border-slate-700">
-                    {editTotalLive.toLocaleString('id-ID')} butir
-                  </span>
-                </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Catatan Tambahan
+                <label className="block text-xs font-semibold text-rose-800 mb-1">
+                  3. Rusak / Pecah
                 </label>
-                <textarea
-                  rows={2}
-                  value={editForm.catatan}
-                  onChange={(e) => setEditForm({ ...editForm, catatan: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={createForm.jumlah_butir_pecah}
+                  onChange={(e) =>
+                    setCreateForm({ ...createForm, jumlah_butir_pecah: e.target.value })
+                  }
+                  className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-white border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-border-subtle flex items-center justify-between text-xs">
+              <span className="text-content-secondary font-medium">Total Akumulasi:</span>
+              <span className="font-bold text-content-primary text-sm bg-white px-3 py-1 rounded-lg border border-border-subtle font-mono">
+                {formatNumber(createTotalLive)} butir
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-content-primary uppercase tracking-wider mb-1.5">
+              Catatan Tambahan (Opsional)
+            </label>
+            <textarea
+              rows={2}
+              placeholder="Kondisi pakan, suhu cuaca, atau catatan khusus lainnya"
+              value={createForm.catatan}
+              onChange={(e) => setCreateForm({ ...createForm, catatan: e.target.value })}
+              className="w-full px-3.5 py-2.5 rounded-xl bg-surface-page border border-border-subtle text-content-primary placeholder-content-muted text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-border-subtle">
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(false)}
+              disabled={submitting}
+              className="px-4 py-2.5 min-h-[44px] rounded-xl bg-surface-muted hover:bg-slate-200 text-content-primary font-bold text-xs transition cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-4 py-2.5 min-h-[44px] rounded-xl bg-brand hover:bg-brand-hover text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            >
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              <span>Simpan Data Produksi</span>
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ADAPTIVE MODAL: Edit Produksi Telur */}
+      <Modal
+        isOpen={showEditModal && !!selectedProduksi}
+        onClose={() => setShowEditModal(false)}
+        title={`Koreksi Produksi Telur #${selectedProduksi?.id || ''}`}
+        subtitle="Perbarui kuantitas butir telur dan catatan panen."
+        icon={<Edit2 className="w-5 h-5 text-emerald-600" />}
+      >
+        {isEditAnomaly && (
+          <div className="mb-4 p-3.5 rounded-xl bg-orange-50 border border-orange-200 text-orange-900 text-xs space-y-1.5">
+            <div className="flex items-center gap-1.5 font-bold text-orange-800">
+              <AlertTriangle className="w-4 h-4 text-orange-600 shrink-0" />
+              <span>Perhatian: Potensi Anomali Koreksi (HDP &gt; 100%)</span>
+            </div>
+            <p className="leading-relaxed text-[11px]">
+              Koreksi jumlah telur normal (<strong>{formatNumber(normalInputEdit)} butir</strong>)
+              melebihi populasi ayam hidup di kandang ini (<strong>{formatNumber(editPopulasi)} ekor</strong>).
+              Nilai HDP akan menjadi <strong className="text-orange-700 font-bold">{editHdpLive}%</strong>.
+              Secara biologis 1 ekor ayam maksimal bertelur 1 butir/hari.
+            </p>
+          </div>
+        )}
+
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-content-primary uppercase tracking-wider mb-1.5">
+              Tanggal Panen *
+            </label>
+            <input
+              type="date"
+              required
+              value={editForm.tanggal}
+              onChange={(e) => setEditForm({ ...editForm, tanggal: e.target.value })}
+              className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+          </div>
+
+          <div className="p-4 rounded-xl bg-surface-page border border-border-subtle space-y-3">
+            <p className="text-xs font-bold text-content-primary uppercase tracking-wider">
+              Koreksi Kategori Butir Telur
+            </p>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-emerald-800">
+                  1. Jumlah Butir Normal *
+                </label>
+                {editPopulasi > 0 && (
+                  <span className="text-[11px] text-content-secondary">
+                    Populasi: <strong className="text-content-primary">{formatNumber(editPopulasi)}</strong> ekor
+                  </span>
+                )}
+              </div>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                required
+                value={editForm.jumlah_butir_normal}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, jumlah_butir_normal: e.target.value })
+                }
+                className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-white border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-amber-800 mb-1">
+                  2. Cangkang Retak
+                </label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={editForm.jumlah_butir_retak}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, jumlah_butir_retak: e.target.value })
+                  }
+                  className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-white border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  disabled={submitting}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Simpan Perubahan</span>
-                </button>
+              <div>
+                <label className="block text-xs font-semibold text-rose-800 mb-1">
+                  3. Rusak / Pecah
+                </label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={editForm.jumlah_butir_pecah}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, jumlah_butir_pecah: e.target.value })
+                  }
+                  className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-white border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                />
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: Konfirmasi Hapus (Level 3 -> z-[70]) */}
-      {showDeleteModal && selectedProduksi && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
-              <h3 className="font-bold text-lg text-white flex items-center gap-2">
-                <Trash2 className="w-5 h-5 text-rose-400" />
-                Hapus Data Produksi Telur
-              </h3>
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="text-slate-400 hover:text-white transition p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
 
-            <div className="space-y-3 text-sm text-slate-300 mb-6">
-              <p>
-                Anda akan menghapus data produksi telur <strong>#{selectedProduksi.id}</strong> tanggal{' '}
-                <strong>{new Date(selectedProduksi.tanggal).toLocaleDateString('id-ID')}</strong> sejumlah{' '}
-                <strong className="text-amber-400">
-                  {(
+            <div className="pt-2 border-t border-border-subtle flex items-center justify-between text-xs">
+              <span className="text-content-secondary font-medium">Total Koreksi:</span>
+              <span className="font-bold text-content-primary text-sm bg-white px-3 py-1 rounded-lg border border-border-subtle font-mono">
+                {formatNumber(editTotalLive)} butir
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-content-primary uppercase tracking-wider mb-1.5">
+              Catatan Tambahan
+            </label>
+            <textarea
+              rows={2}
+              value={editForm.catatan}
+              onChange={(e) => setEditForm({ ...editForm, catatan: e.target.value })}
+              className="w-full px-3.5 py-2.5 rounded-xl bg-surface-page border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-border-subtle">
+            <button
+              type="button"
+              onClick={() => setShowEditModal(false)}
+              disabled={submitting}
+              className="px-4 py-2.5 min-h-[44px] rounded-xl bg-surface-muted hover:bg-slate-200 text-content-primary font-bold text-xs transition cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-4 py-2.5 min-h-[44px] rounded-xl bg-brand hover:bg-brand-hover text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            >
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              <span>Simpan Perubahan</span>
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ADAPTIVE MODAL: Konfirmasi Hapus */}
+      <Modal
+        isOpen={showDeleteModal && !!selectedProduksi}
+        onClose={() => setShowDeleteModal(false)}
+        title="Hapus Data Produksi Telur"
+        subtitle={`Konfirmasi pembatalan panen produksi #${selectedProduksi?.id || ''}`}
+        icon={<Trash2 className="w-5 h-5 text-rose-600" />}
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-3 text-sm text-content-secondary mb-5">
+          <p>
+            Anda akan menghapus data produksi telur <strong>#{selectedProduksi?.id}</strong> tanggal{' '}
+            <strong>{selectedProduksi ? formatDisplayDate(selectedProduksi.tanggal) : ''}</strong> sejumlah{' '}
+            <strong className="text-content-primary">
+              {selectedProduksi
+                ? formatNumber(
                     selectedProduksi.jumlah_butir_normal +
-                    selectedProduksi.jumlah_butir_retak +
-                    selectedProduksi.jumlah_butir_pecah
-                  ).toLocaleString('id-ID')}{' '}
-                  butir
-                </strong>
-                .
-              </p>
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
-                ⚠️ Tindakan ini akan menghapus catatan secara permanen dari basis data.
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
-              <button
-                type="button"
-                onClick={() => setShowDeleteModal(false)}
-                disabled={submitting}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteConfirm}
-                disabled={submitting}
-                className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs shadow-lg shadow-rose-500/20 transition flex items-center gap-1.5 disabled:opacity-50"
-              >
-                {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                <span>Hapus Permanen</span>
-              </button>
-            </div>
+                      selectedProduksi.jumlah_butir_retak +
+                      selectedProduksi.jumlah_butir_pecah
+                  )
+                : 0}{' '}
+              butir
+            </strong>
+            .
+          </p>
+          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium">
+            ⚠️ Tindakan ini akan menghapus catatan panen secara permanen dari basis data dan memperbarui kembali stok gudang.
           </div>
         </div>
-      )}
+
+        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border-subtle">
+          <button
+            type="button"
+            onClick={() => setShowDeleteModal(false)}
+            disabled={submitting}
+            className="px-4 py-2.5 min-h-[44px] rounded-xl bg-surface-muted hover:bg-slate-200 text-content-primary font-bold text-xs transition cursor-pointer"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteConfirm}
+            disabled={submitting}
+            className="px-4 py-2.5 min-h-[44px] rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+          >
+            {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+            <span>Hapus Permanen</span>
+          </button>
+        </div>
+      </Modal>
     </div>
   )
 }
