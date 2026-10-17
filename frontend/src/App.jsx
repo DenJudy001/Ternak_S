@@ -9,7 +9,6 @@ import { StokTelurPage } from './pages/StokTelurPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { ExportReportModal } from './components/ExportReportModal'
-import { checkServerHealth } from './services/api'
 import {
   LayoutDashboard,
   Home,
@@ -29,22 +28,7 @@ import {
 function MainLayout() {
   const { user, logout } = useAuth()
   const [activeTab, setActiveTab] = useState('dashboard') // 'dashboard' | 'kandang' | 'produksi-telur'
-  const [serverStatus, setServerStatus] = useState('checking')
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
-
-  useEffect(() => {
-    checkServerHealth()
-      .then((data) => {
-        if (data.status === 'ok') {
-          setServerStatus('online')
-        } else {
-          setServerStatus('error')
-        }
-      })
-      .catch(() => {
-        setServerStatus('offline')
-      })
-  }, [])
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between">
@@ -166,22 +150,6 @@ function MainLayout() {
               <span className="hidden sm:inline">Ekspor Laporan</span>
             </button>
 
-            {/* Backend status badge */}
-            <div className="hidden sm:flex items-center space-x-2 text-xs font-mono bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-full">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  serverStatus === 'online'
-                    ? 'bg-emerald-400 animate-pulse'
-                    : serverStatus === 'checking'
-                    ? 'bg-amber-400 animate-pulse'
-                    : 'bg-rose-500'
-                }`}
-              />
-              <span className="text-slate-300">
-                DB: {serverStatus === 'online' ? 'Connected' : serverStatus === 'checking' ? 'Connecting...' : 'Offline'}
-              </span>
-            </div>
-
             {/* User profile & Logout */}
             <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
               <div className="flex items-center gap-2 bg-slate-800/60 border border-slate-700/80 px-3 py-1.5 rounded-xl">
@@ -209,10 +177,7 @@ function MainLayout() {
       {/* Main Content View */}
       <main className="max-w-6xl mx-auto px-4 py-8 flex-1 w-full">
         {activeTab === 'dashboard' && (
-          <DashboardPage
-            onNavigate={setActiveTab}
-            onOpenExportModal={() => setIsExportModalOpen(true)}
-          />
+          <DashboardPage onNavigate={setActiveTab} />
         )}
         {activeTab === 'analitik' && <AnalyticsPage />}
         {activeTab === 'kandang' && <KandangPage />}
@@ -230,7 +195,7 @@ function MainLayout() {
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
-        <p>© 2026 SiTernak - Sistem Manajemen Peternakan Ayam Petelur. Clean Architecture.</p>
+        <p>© 2026 SiTernak - Sistem Manajemen Peternakan Ayam Petelur.</p>
       </footer>
     </div>
   )
