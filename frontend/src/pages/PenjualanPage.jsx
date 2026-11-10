@@ -164,9 +164,9 @@ export function PenjualanPage() {
     try {
       const params = {}
       if (filterSatuan !== 'semua') params.satuan_jual = filterSatuan
-      if (startDate) params.startDate = startDate
-      if (endDate) params.endDate = endDate
-      if (searchPembeli.trim()) params.pembeli = searchPembeli.trim()
+      if (startDate) params.start_date = startDate
+      if (endDate) params.end_date = endDate
+      if (searchPembeli.trim()) params.search_pembeli = searchPembeli.trim()
 
       const [listRes, summaryRes] = await Promise.all([
         getPenjualanList(params),

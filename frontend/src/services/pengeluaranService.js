@@ -34,8 +34,10 @@ export async function getPengeluaranList(params = {}) {
   if (params.kandang_id !== undefined && params.kandang_id !== null && params.kandang_id !== '') {
     query.append('kandang_id', params.kandang_id)
   }
-  if (params.start_date) query.append('start_date', params.start_date)
-  if (params.end_date) query.append('end_date', params.end_date)
+  const startDate = params.start_date || params.startDate
+  const endDate = params.end_date || params.endDate
+  if (startDate) query.append('start_date', startDate)
+  if (endDate) query.append('end_date', endDate)
   if (params.limit !== undefined) query.append('limit', params.limit)
   if (params.offset !== undefined) query.append('offset', params.offset)
 
@@ -61,8 +63,10 @@ export async function getPengeluaranList(params = {}) {
  */
 export async function getPengeluaranSummary(params = {}) {
   const query = new URLSearchParams()
-  if (params.start_date) query.append('start_date', params.start_date)
-  if (params.end_date) query.append('end_date', params.end_date)
+  const startDate = params.start_date || params.startDate
+  const endDate = params.end_date || params.endDate
+  if (startDate) query.append('start_date', startDate)
+  if (endDate) query.append('end_date', endDate)
   if (params.kandang_id !== undefined && params.kandang_id !== null && params.kandang_id !== '') {
     query.append('kandang_id', params.kandang_id)
   }

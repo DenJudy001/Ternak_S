@@ -31,9 +31,12 @@ export async function createPenjualan(payload) {
 export async function getPenjualanList(params = {}) {
   const query = new URLSearchParams()
   if (params.satuan_jual) query.append('satuan_jual', params.satuan_jual)
-  if (params.start_date) query.append('start_date', params.start_date)
-  if (params.end_date) query.append('end_date', params.end_date)
-  if (params.search_pembeli) query.append('search_pembeli', params.search_pembeli)
+  const startDate = params.start_date || params.startDate
+  const endDate = params.end_date || params.endDate
+  const searchPembeli = params.search_pembeli || params.pembeli
+  if (startDate) query.append('start_date', startDate)
+  if (endDate) query.append('end_date', endDate)
+  if (searchPembeli) query.append('search_pembeli', searchPembeli)
   if (params.limit !== undefined) query.append('limit', params.limit)
   if (params.offset !== undefined) query.append('offset', params.offset)
 
@@ -59,8 +62,10 @@ export async function getPenjualanList(params = {}) {
  */
 export async function getPenjualanSummary(params = {}) {
   const query = new URLSearchParams()
-  if (params.start_date) query.append('start_date', params.start_date)
-  if (params.end_date) query.append('end_date', params.end_date)
+  const startDate = params.start_date || params.startDate
+  const endDate = params.end_date || params.endDate
+  if (startDate) query.append('start_date', startDate)
+  if (endDate) query.append('end_date', endDate)
 
   const queryString = query.toString() ? `?${query.toString()}` : ''
   const response = await fetch(`${API_BASE_URL}/api/v1/penjualan/summary${queryString}`, {

@@ -174,8 +174,8 @@ export function PengeluaranPage() {
       if (filterAlokasi === '0') params.kandang_id = 0
       else if (filterAlokasi !== 'semua') params.kandang_id = parseInt(filterAlokasi, 10)
 
-      if (startDate) params.startDate = startDate
-      if (endDate) params.endDate = endDate
+      if (startDate) params.start_date = startDate
+      if (endDate) params.end_date = endDate
 
       const [listRes, summaryRes] = await Promise.all([
         getPengeluaranList(params),
