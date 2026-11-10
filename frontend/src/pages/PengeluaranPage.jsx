@@ -101,6 +101,36 @@ export function calculatePresetDates(preset) {
   return { start: '', end: '' }
 }
 
+// Helper validasi murni formulir pengeluaran (Client-side Inline Validation)
+export function validatePengeluaranForm(values) {
+  const errors = {}
+
+  if (!values.tanggal || !values.tanggal.trim()) {
+    errors.tanggal = 'Tanggal transaksi wajib dipilih.'
+  }
+
+  const nominalNum = parseFloat(values.nominal)
+  if (values.nominal === '' || values.nominal === null || values.nominal === undefined) {
+    errors.nominal = 'Nominal pengeluaran wajib diisi.'
+  } else if (isNaN(nominalNum) || nominalNum <= 0) {
+    errors.nominal = 'Nominal pengeluaran harus berupa angka lebih dari Rp 0.'
+  }
+
+  if (values.kategori === 'pakan') {
+    const kgNum = parseFloat(values.jumlah_kg)
+    if (values.jumlah_kg === '' || values.jumlah_kg === null || values.jumlah_kg === undefined) {
+      errors.jumlah_kg = 'Jumlah pakan fisik (kg) wajib diisi untuk kategori pakan.'
+    } else if (isNaN(kgNum) || kgNum <= 0) {
+      errors.jumlah_kg = 'Jumlah pakan fisik (kg) harus berupa angka lebih dari 0 kg.'
+    }
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+  }
+}
+
 export function PengeluaranPage() {
   const defaultDates = useMemo(() => calculatePresetDates('this_month'), [])
   const [pengeluaranList, setPengeluaranList] = useState([])
@@ -109,6 +139,11 @@ export function PengeluaranPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+
+  // Inline Validation States
+  const [createErrors, setCreateErrors] = useState({})
+  const [editErrors, setEditErrors] = useState({})
+  const [modalGeneralError, setModalGeneralError] = useState('')
 
   // Filter states
   const [filterKategori, setFilterKategori] = useState('semua')
@@ -199,6 +234,8 @@ export function PengeluaranPage() {
   const openCreateModal = () => {
     setError('')
     setSuccessMsg('')
+    setCreateErrors({})
+    setModalGeneralError('')
     setCreateForm({
       tanggal: formatLocalDate(),
       kategori: 'pakan',
@@ -213,16 +250,21 @@ export function PengeluaranPage() {
   // Handle Create Submit
   const handleCreateSubmit = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
+    setModalGeneralError('')
     setError('')
     setSuccessMsg('')
 
+    // Client-side pure validation
+    const { isValid, errors } = validatePengeluaranForm(createForm)
+    if (!isValid) {
+      setCreateErrors(errors)
+      return
+    }
+
+    setSubmitting(true)
+
     try {
       const nominalNum = parseFloat(createForm.nominal)
-      if (isNaN(nominalNum) || nominalNum <= 0) {
-        throw new Error('Nominal pengeluaran harus berupa angka lebih dari 0.')
-      }
-
       const payload = {
         tanggal: createForm.tanggal,
         kategori: createForm.kategori,
@@ -232,19 +274,16 @@ export function PengeluaranPage() {
       }
 
       if (createForm.kategori === 'pakan') {
-        const kg = parseFloat(createForm.jumlah_kg)
-        if (isNaN(kg) || kg <= 0) {
-          throw new Error('Jumlah pakan fisik (kg) wajib diisi untuk kategori pakan.')
-        }
-        payload.jumlah_kg = kg
+        payload.jumlah_kg = parseFloat(createForm.jumlah_kg)
       }
 
       await createPengeluaran(payload)
       setSuccessMsg('Pengeluaran berhasil dicatat!')
       setShowCreateModal(false)
+      setCreateErrors({})
       await loadData()
     } catch (err) {
-      setError(err.message || 'Gagal menyimpan pengeluaran.')
+      setModalGeneralError(err.message || 'Gagal menyimpan pengeluaran.')
     } finally {
       setSubmitting(false)
     }
@@ -253,6 +292,8 @@ export function PengeluaranPage() {
   // Open Edit Modal
   const openEditModal = (item) => {
     setSelectedItem(item)
+    setEditErrors({})
+    setModalGeneralError('')
     setEditForm({
       tanggal: item.tanggal,
       kategori: item.kategori,
@@ -269,16 +310,21 @@ export function PengeluaranPage() {
     e.preventDefault()
     if (!selectedItem) return
 
-    setSubmitting(true)
+    setModalGeneralError('')
     setError('')
     setSuccessMsg('')
 
+    // Client-side pure validation
+    const { isValid, errors } = validatePengeluaranForm(editForm)
+    if (!isValid) {
+      setEditErrors(errors)
+      return
+    }
+
+    setSubmitting(true)
+
     try {
       const nominalNum = parseFloat(editForm.nominal)
-      if (isNaN(nominalNum) || nominalNum <= 0) {
-        throw new Error('Nominal pengeluaran harus berupa angka lebih dari 0.')
-      }
-
       const payload = {
         tanggal: editForm.tanggal,
         kategori: editForm.kategori,
@@ -288,11 +334,7 @@ export function PengeluaranPage() {
       }
 
       if (editForm.kategori === 'pakan') {
-        const kg = parseFloat(editForm.jumlah_kg)
-        if (isNaN(kg) || kg <= 0) {
-          throw new Error('Jumlah pakan fisik (kg) wajib diisi untuk kategori pakan.')
-        }
-        payload.jumlah_kg = kg
+        payload.jumlah_kg = parseFloat(editForm.jumlah_kg)
       } else {
         payload.jumlah_kg = null
       }
@@ -300,9 +342,10 @@ export function PengeluaranPage() {
       await updatePengeluaran(selectedItem.id, payload)
       setSuccessMsg(`Pengeluaran #${selectedItem.id} berhasil diperbarui!`)
       setShowEditModal(false)
+      setEditErrors({})
       await loadData()
     } catch (err) {
-      setError(err.message || 'Gagal memperbarui pengeluaran.')
+      setModalGeneralError(err.message || 'Gagal memperbarui pengeluaran.')
     } finally {
       setSubmitting(false)
     }
@@ -821,7 +864,15 @@ export function PengeluaranPage() {
         subtitle="Input transaksi biaya pakan, operasional, atau overhead peternakan."
         icon={<Receipt className="w-5 h-5 text-brand" />}
       >
-        <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
+        <form noValidate onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
+          {/* Modal-scoped General Error Banner (Jaringan / Server Fallback) */}
+          {modalGeneralError && (
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 animate-in fade-in duration-150">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+              <div className="flex-1 font-medium">{modalGeneralError}</div>
+            </div>
+          )}
+
           {/* Tanggal */}
           <div>
             <label className="block text-content-primary font-bold uppercase tracking-wider mb-1">
@@ -829,11 +880,25 @@ export function PengeluaranPage() {
             </label>
             <input
               type="date"
-              required
               value={createForm.tanggal}
-              onChange={(e) => setCreateForm({ ...createForm, tanggal: e.target.value })}
-              className="w-full bg-surface-page border border-border-subtle rounded-xl px-3.5 py-2.5 min-h-[44px] text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              onChange={(e) => {
+                setCreateForm({ ...createForm, tanggal: e.target.value })
+                if (createErrors.tanggal) {
+                  setCreateErrors((prev) => ({ ...prev, tanggal: undefined }))
+                }
+              }}
+              className={`w-full border rounded-xl px-3.5 py-2.5 min-h-[44px] text-content-primary text-sm focus:outline-none focus:ring-2 transition ${
+                createErrors.tanggal
+                  ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                  : 'bg-surface-page border-border-subtle focus:ring-brand'
+              }`}
             />
+            {createErrors.tanggal && (
+              <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                <span>{createErrors.tanggal}</span>
+              </p>
+            )}
           </div>
 
           {/* Kategori */}
@@ -842,7 +907,6 @@ export function PengeluaranPage() {
               Kategori Pengeluaran *
             </label>
             <select
-              required
               value={createForm.kategori}
               onChange={(e) => {
                 const newKat = e.target.value
@@ -851,6 +915,9 @@ export function PengeluaranPage() {
                   kategori: newKat,
                   jumlah_kg: newKat === 'pakan' ? createForm.jumlah_kg : '',
                 })
+                if (newKat !== 'pakan' && createErrors.jumlah_kg) {
+                  setCreateErrors((prev) => ({ ...prev, jumlah_kg: undefined }))
+                }
               }}
               className="w-full bg-surface-page border border-border-subtle rounded-xl px-3.5 py-2.5 min-h-[44px] text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand font-semibold"
             >
@@ -864,7 +931,11 @@ export function PengeluaranPage() {
 
           {/* Conditional Input: Jumlah Pakan Fisik (Kg) */}
           {createForm.kategori === 'pakan' && (
-            <div className="p-3.5 rounded-xl bg-surface-page border border-border-subtle space-y-1">
+            <div className={`p-3.5 rounded-xl border space-y-1 transition ${
+              createErrors.jumlah_kg
+                ? 'bg-rose-50/30 border-rose-300'
+                : 'bg-surface-page border-border-subtle'
+            }`}>
               <label className="block text-content-primary font-bold uppercase tracking-wider">
                 Jumlah Pakan Fisik (Kg) <span className="text-emerald-700">*</span>
               </label>
@@ -872,18 +943,31 @@ export function PengeluaranPage() {
                 <input
                   type="number"
                   inputMode="decimal"
-                  required
-                  min="0.01"
                   step="any"
                   placeholder="0.0"
                   value={createForm.jumlah_kg}
-                  onChange={(e) => setCreateForm({ ...createForm, jumlah_kg: e.target.value })}
-                  className="w-full bg-white border border-border-subtle rounded-xl px-3.5 py-2.5 min-h-[44px] text-content-primary font-mono text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                  onChange={(e) => {
+                    setCreateForm({ ...createForm, jumlah_kg: e.target.value })
+                    if (createErrors.jumlah_kg) {
+                      setCreateErrors((prev) => ({ ...prev, jumlah_kg: undefined }))
+                    }
+                  }}
+                  className={`w-full bg-white border rounded-xl px-3.5 py-2.5 min-h-[44px] text-content-primary font-mono text-sm focus:outline-none focus:ring-2 transition ${
+                    createErrors.jumlah_kg
+                      ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                      : 'border-border-subtle focus:ring-brand'
+                  }`}
                 />
                 <span className="absolute right-3.5 top-3 text-content-secondary font-mono text-xs font-semibold">
                   kg
                 </span>
               </div>
+              {createErrors.jumlah_kg && (
+                <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                  <span>{createErrors.jumlah_kg}</span>
+                </p>
+              )}
               <p className="text-[11px] text-content-secondary pt-0.5">
                 Digunakan otomatis untuk menghitung FCR (Feed Conversion Ratio) di modul analitik.
               </p>
@@ -902,16 +986,28 @@ export function PengeluaranPage() {
               <input
                 type="number"
                 inputMode="numeric"
-                required
-                min="1"
-                step="1"
                 placeholder="0"
                 value={createForm.nominal}
-                onChange={(e) => setCreateForm({ ...createForm, nominal: e.target.value })}
-                className="w-full bg-surface-page border border-border-subtle rounded-xl pl-10 pr-3.5 py-2.5 min-h-[44px] text-content-primary font-mono text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                onChange={(e) => {
+                  setCreateForm({ ...createForm, nominal: e.target.value })
+                  if (createErrors.nominal) {
+                    setCreateErrors((prev) => ({ ...prev, nominal: undefined }))
+                  }
+                }}
+                className={`w-full border rounded-xl pl-10 pr-3.5 py-2.5 min-h-[44px] text-content-primary font-mono text-sm focus:outline-none focus:ring-2 transition ${
+                  createErrors.nominal
+                    ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                    : 'bg-surface-page border-border-subtle focus:ring-brand'
+                }`}
               />
             </div>
-            {createForm.nominal && !isNaN(parseFloat(createForm.nominal)) && (
+            {createErrors.nominal && (
+              <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                <span>{createErrors.nominal}</span>
+              </p>
+            )}
+            {createForm.nominal && !isNaN(parseFloat(createForm.nominal)) && !createErrors.nominal && (
               <p className="mt-1 text-xs text-rose-700 font-mono font-bold">
                 Format: {formatRupiah(parseFloat(createForm.nominal))}
               </p>
@@ -983,18 +1079,40 @@ export function PengeluaranPage() {
         subtitle="Perbarui nominal atau alokasi biaya pengeluaran operasional."
         icon={<Edit2 className="w-5 h-5 text-brand" />}
       >
-        <form onSubmit={handleEditSubmit} className="space-y-4 text-xs">
+        <form noValidate onSubmit={handleEditSubmit} className="space-y-4 text-xs">
+          {/* Modal-scoped General Error Banner (Jaringan / Server Fallback) */}
+          {modalGeneralError && (
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 animate-in fade-in duration-150">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+              <div className="flex-1 font-medium">{modalGeneralError}</div>
+            </div>
+          )}
+
           <div>
             <label className="block text-content-primary font-bold uppercase tracking-wider mb-1">
               Tanggal Transaksi *
             </label>
             <input
               type="date"
-              required
               value={editForm.tanggal}
-              onChange={(e) => setEditForm({ ...editForm, tanggal: e.target.value })}
-              className="w-full bg-surface-page border border-border-subtle rounded-xl px-3.5 py-2.5 min-h-[44px] text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              onChange={(e) => {
+                setEditForm({ ...editForm, tanggal: e.target.value })
+                if (editErrors.tanggal) {
+                  setEditErrors((prev) => ({ ...prev, tanggal: undefined }))
+                }
+              }}
+              className={`w-full border rounded-xl px-3.5 py-2.5 min-h-[44px] text-content-primary text-sm focus:outline-none focus:ring-2 transition ${
+                editErrors.tanggal
+                  ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                  : 'bg-surface-page border-border-subtle focus:ring-brand'
+              }`}
             />
+            {editErrors.tanggal && (
+              <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                <span>{editErrors.tanggal}</span>
+              </p>
+            )}
           </div>
 
           <div>
@@ -1002,7 +1120,6 @@ export function PengeluaranPage() {
               Kategori Pengeluaran *
             </label>
             <select
-              required
               value={editForm.kategori}
               onChange={(e) => {
                 const newKat = e.target.value
@@ -1011,6 +1128,9 @@ export function PengeluaranPage() {
                   kategori: newKat,
                   jumlah_kg: newKat === 'pakan' ? editForm.jumlah_kg : '',
                 })
+                if (newKat !== 'pakan' && editErrors.jumlah_kg) {
+                  setEditErrors((prev) => ({ ...prev, jumlah_kg: undefined }))
+                }
               }}
               className="w-full bg-surface-page border border-border-subtle rounded-xl px-3.5 py-2.5 min-h-[44px] text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand font-semibold"
             >
@@ -1023,7 +1143,11 @@ export function PengeluaranPage() {
           </div>
 
           {editForm.kategori === 'pakan' && (
-            <div className="p-3.5 rounded-xl bg-surface-page border border-border-subtle space-y-1">
+            <div className={`p-3.5 rounded-xl border space-y-1 transition ${
+              editErrors.jumlah_kg
+                ? 'bg-rose-50/30 border-rose-300'
+                : 'bg-surface-page border-border-subtle'
+            }`}>
               <label className="block text-content-primary font-bold uppercase tracking-wider">
                 Jumlah Pakan Fisik (Kg) <span className="text-emerald-700">*</span>
               </label>
@@ -1031,18 +1155,31 @@ export function PengeluaranPage() {
                 <input
                   type="number"
                   inputMode="decimal"
-                  required
-                  min="0.01"
                   step="any"
                   placeholder="0.0"
                   value={editForm.jumlah_kg}
-                  onChange={(e) => setEditForm({ ...editForm, jumlah_kg: e.target.value })}
-                  className="w-full bg-white border border-border-subtle rounded-xl px-3.5 py-2.5 min-h-[44px] text-content-primary font-mono text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                  onChange={(e) => {
+                    setEditForm({ ...editForm, jumlah_kg: e.target.value })
+                    if (editErrors.jumlah_kg) {
+                      setEditErrors((prev) => ({ ...prev, jumlah_kg: undefined }))
+                    }
+                  }}
+                  className={`w-full bg-white border rounded-xl px-3.5 py-2.5 min-h-[44px] text-content-primary font-mono text-sm focus:outline-none focus:ring-2 transition ${
+                    editErrors.jumlah_kg
+                      ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                      : 'border-border-subtle focus:ring-brand'
+                  }`}
                 />
                 <span className="absolute right-3.5 top-3 text-content-secondary font-mono text-xs font-semibold">
                   kg
                 </span>
               </div>
+              {editErrors.jumlah_kg && (
+                <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                  <span>{editErrors.jumlah_kg}</span>
+                </p>
+              )}
             </div>
           )}
 
@@ -1057,15 +1194,28 @@ export function PengeluaranPage() {
               <input
                 type="number"
                 inputMode="numeric"
-                required
-                min="1"
-                step="1"
+                placeholder="0"
                 value={editForm.nominal}
-                onChange={(e) => setEditForm({ ...editForm, nominal: e.target.value })}
-                className="w-full bg-surface-page border border-border-subtle rounded-xl pl-10 pr-3.5 py-2.5 min-h-[44px] text-content-primary font-mono text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                onChange={(e) => {
+                  setEditForm({ ...editForm, nominal: e.target.value })
+                  if (editErrors.nominal) {
+                    setEditErrors((prev) => ({ ...prev, nominal: undefined }))
+                  }
+                }}
+                className={`w-full border rounded-xl pl-10 pr-3.5 py-2.5 min-h-[44px] text-content-primary font-mono text-sm focus:outline-none focus:ring-2 transition ${
+                  editErrors.nominal
+                    ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                    : 'bg-surface-page border-border-subtle focus:ring-brand'
+                }`}
               />
             </div>
-            {editForm.nominal && !isNaN(parseFloat(editForm.nominal)) && (
+            {editErrors.nominal && (
+              <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                <span>{editErrors.nominal}</span>
+              </p>
+            )}
+            {editForm.nominal && !isNaN(parseFloat(editForm.nominal)) && !editErrors.nominal && (
               <p className="mt-1 text-xs text-rose-700 font-mono font-bold">
                 Format: {formatRupiah(parseFloat(editForm.nominal))}
               </p>
