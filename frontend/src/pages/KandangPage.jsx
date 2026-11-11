@@ -44,12 +44,80 @@ import {
   EmptyState,
 } from '../components/common'
 
+// Helper validasi murni formulir kandang (Client-side Inline Validation)
+export function validateKandangForm(values, isEdit = false, selectedKandang = null) {
+  const errors = {}
+
+  if (!values.nama_kandang || !values.nama_kandang.trim()) {
+    errors.nama_kandang = 'Nama kandang wajib diisi.'
+  } else if (values.nama_kandang.trim().length < 2) {
+    errors.nama_kandang = 'Nama kandang minimal 2 karakter.'
+  }
+
+  if (!values.tanggal_mulai || !values.tanggal_mulai.trim()) {
+    errors.tanggal_mulai = 'Tanggal mulai siklus wajib dipilih.'
+  }
+
+  const jumlahAwalNum = parseFloat(values.jumlah_awal)
+  if (values.jumlah_awal === '' || values.jumlah_awal === null || values.jumlah_awal === undefined) {
+    errors.jumlah_awal = 'Populasi awal ayam wajib diisi.'
+  } else if (isNaN(jumlahAwalNum) || jumlahAwalNum <= 0 || !Number.isInteger(jumlahAwalNum)) {
+    errors.jumlah_awal = 'Populasi awal ayam harus berupa bilangan bulat positif (> 0).'
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+  }
+}
+
+// Helper validasi murni formulir mortalitas (Client-side Inline Validation)
+export function validateMortalitasForm(values, selectedKandang = null, isEdit = false, selectedMortalitas = null) {
+  const errors = {}
+
+  if (!isEdit && (!values.kandang_id || String(values.kandang_id).trim() === '')) {
+    errors.kandang_id = 'Pilih salah satu kandang aktif.'
+  }
+
+  if (!values.tanggal || !values.tanggal.trim()) {
+    errors.tanggal = 'Tanggal kematian wajib dipilih.'
+  }
+
+  const jumlahNum = parseFloat(values.jumlah)
+  if (values.jumlah === '' || values.jumlah === null || values.jumlah === undefined) {
+    errors.jumlah = 'Jumlah kematian ayam wajib diisi.'
+  } else if (isNaN(jumlahNum) || jumlahNum <= 0 || !Number.isInteger(jumlahNum)) {
+    errors.jumlah = 'Jumlah kematian harus berupa bilangan bulat lebih dari 0 ekor.'
+  } else if (!isEdit && selectedKandang) {
+    if (jumlahNum > selectedKandang.jumlah_saat_ini) {
+      errors.jumlah = `Jumlah kematian (${jumlahNum} ekor) melebihi populasi saat ini (${selectedKandang.jumlah_saat_ini} ekor).`
+    }
+  } else if (isEdit && selectedMortalitas && selectedKandang) {
+    const maxAllowed = selectedKandang.jumlah_saat_ini + selectedMortalitas.jumlah
+    if (jumlahNum > maxAllowed) {
+      errors.jumlah = `Koreksi kematian (${jumlahNum} ekor) melebihi batas maksimum penyesuaian populasi (${maxAllowed} ekor).`
+    }
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+  }
+}
+
 export function KandangPage() {
   const [kandangList, setKandangList] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const [filterStatus, setFilterStatus] = useState('semua')
+
+  // Inline Validation States
+  const [createErrors, setCreateErrors] = useState({})
+  const [editErrors, setEditErrors] = useState({})
+  const [mortalitasErrors, setMortalitasErrors] = useState({})
+  const [editMortalitasErrors, setEditMortalitasErrors] = useState({})
+  const [modalGeneralError, setModalGeneralError] = useState('')
 
   // Modal States
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -115,12 +183,35 @@ export function KandangPage() {
     loadKandang()
   }, [filterStatus])
 
+  // Open Create Modal
+  const openCreateModal = () => {
+    setError('')
+    setSuccessMsg('')
+    setCreateErrors({})
+    setModalGeneralError('')
+    setCreateForm({
+      nama_kandang: '',
+      tanggal_mulai: formatLocalDate(),
+      jumlah_awal: '',
+    })
+    setShowCreateModal(true)
+  }
+
   // Handle Create Submit
   const handleCreateSubmit = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
+    setModalGeneralError('')
     setError('')
     setSuccessMsg('')
+
+    // Client-side pure validation
+    const { isValid, errors } = validateKandangForm(createForm, false)
+    if (!isValid) {
+      setCreateErrors(errors)
+      return
+    }
+
+    setSubmitting(true)
 
     try {
       const payload = {
@@ -129,13 +220,10 @@ export function KandangPage() {
         jumlah_awal: parseInt(createForm.jumlah_awal, 10),
       }
 
-      if (!payload.nama_kandang || !payload.tanggal_mulai || isNaN(payload.jumlah_awal) || payload.jumlah_awal <= 0) {
-        throw new Error('Semua kolom wajib diisi dengan benar. Jumlah awal harus lebih dari 0.')
-      }
-
       await createKandang(payload)
       setSuccessMsg(`Kandang '${payload.nama_kandang}' berhasil dibuat!`)
       setShowCreateModal(false)
+      setCreateErrors({})
       setCreateForm({
         nama_kandang: '',
         tanggal_mulai: formatLocalDate(),
@@ -143,7 +231,7 @@ export function KandangPage() {
       })
       await loadKandang()
     } catch (err) {
-      setError(err.message || 'Gagal membuat kandang baru.')
+      setModalGeneralError(err.message || 'Gagal membuat kandang baru.')
     } finally {
       setSubmitting(false)
     }
@@ -152,11 +240,13 @@ export function KandangPage() {
   // Open Edit Modal
   const openEditModal = (kandang) => {
     setSelectedKandang(kandang)
+    setEditErrors({})
+    setModalGeneralError('')
     setEditForm({
       nama_kandang: kandang.nama_kandang,
       tanggal_mulai: kandang.tanggal_mulai,
       status: kandang.status,
-      jumlah_awal: kandang.jumlah_awal,
+      jumlah_awal: String(kandang.jumlah_awal),
     })
     setShowEditModal(true)
   }
@@ -166,9 +256,18 @@ export function KandangPage() {
     e.preventDefault()
     if (!selectedKandang) return
 
-    setSubmitting(true)
+    setModalGeneralError('')
     setError('')
     setSuccessMsg('')
+
+    // Client-side pure validation
+    const { isValid, errors } = validateKandangForm(editForm, true, selectedKandang)
+    if (!isValid) {
+      setEditErrors(errors)
+      return
+    }
+
+    setSubmitting(true)
 
     try {
       const payload = {
@@ -178,16 +277,13 @@ export function KandangPage() {
         jumlah_awal: parseInt(editForm.jumlah_awal, 10),
       }
 
-      if (isNaN(payload.jumlah_awal) || payload.jumlah_awal <= 0) {
-        throw new Error('Jumlah awal ayam harus berupa angka lebih dari 0.')
-      }
-
       await updateKandang(selectedKandang.id, payload)
       setSuccessMsg(`Data kandang '${payload.nama_kandang}' berhasil diperbarui! Populasi saat ini disinkronkan otomatis.`)
       setShowEditModal(false)
+      setEditErrors({})
       await loadKandang()
     } catch (err) {
-      setError(err.message || 'Gagal memperbarui data kandang.')
+      setModalGeneralError(err.message || 'Gagal memperbarui data kandang.')
     } finally {
       setSubmitting(false)
     }
@@ -197,8 +293,10 @@ export function KandangPage() {
   const openMortalitasModal = (kandang = null) => {
     setError('')
     setSuccessMsg('')
+    setMortalitasErrors({})
+    setModalGeneralError('')
     const activeKandang = kandangList.filter((k) => k.status === 'aktif')
-    const defaultId = kandang ? kandang.id : activeKandang.length > 0 ? activeKandang[0].id : ''
+    const defaultId = kandang ? String(kandang.id) : activeKandang.length > 0 ? String(activeKandang[0].id) : ''
     setMortalitasForm({
       kandang_id: defaultId,
       tanggal: formatLocalDate(),
@@ -211,27 +309,21 @@ export function KandangPage() {
   // Handle Mortalitas Submit
   const handleMortalitasSubmit = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
+    setModalGeneralError('')
     setError('')
     setSuccessMsg('')
 
+    const selectedK = kandangList.find((k) => k.id === parseInt(mortalitasForm.kandang_id, 10))
+    const { isValid, errors } = validateMortalitasForm(mortalitasForm, selectedK, false)
+    if (!isValid) {
+      setMortalitasErrors(errors)
+      return
+    }
+
+    setSubmitting(true)
+
     try {
-      const selectedK = kandangList.find((k) => k.id === parseInt(mortalitasForm.kandang_id, 10))
-      if (!selectedK) {
-        throw new Error('Pilih kandang aktif terlebih dahulu.')
-      }
-
       const jumlahMati = parseInt(mortalitasForm.jumlah, 10)
-      if (isNaN(jumlahMati) || jumlahMati <= 0) {
-        throw new Error('Jumlah kematian harus berupa angka lebih dari 0.')
-      }
-
-      if (jumlahMati > selectedK.jumlah_saat_ini) {
-        throw new Error(
-          `Jumlah kematian (${jumlahMati} ekor) melebihi populasi saat ini (${selectedK.jumlah_saat_ini} ekor).`
-        )
-      }
-
       const payload = {
         kandang_id: selectedK.id,
         tanggal: mortalitasForm.tanggal,
@@ -242,9 +334,10 @@ export function KandangPage() {
       await createMortalitas(payload)
       setSuccessMsg(`Mortalitas ${jumlahMati} ekor pada '${selectedK.nama_kandang}' berhasil dicatat! Populasi ter-update otomatis.`)
       setShowMortalitasModal(false)
+      setMortalitasErrors({})
       await loadKandang()
     } catch (err) {
-      setError(err.message || 'Gagal mencatat mortalitas.')
+      setModalGeneralError(err.message || 'Gagal mencatat mortalitas.')
     } finally {
       setSubmitting(false)
     }
@@ -284,9 +377,11 @@ export function KandangPage() {
   // Open Edit Mortalitas Modal
   const openEditMortalitasModal = (item) => {
     setSelectedMortalitas(item)
+    setEditMortalitasErrors({})
+    setModalGeneralError('')
     setEditMortalitasForm({
       tanggal: item.tanggal,
-      jumlah: item.jumlah,
+      jumlah: String(item.jumlah),
       keterangan: item.keterangan || '',
     })
     setShowEditMortalitasModal(true)
@@ -297,16 +392,28 @@ export function KandangPage() {
     e.preventDefault()
     if (!selectedMortalitas) return
 
-    setSubmitting(true)
+    setModalGeneralError('')
     setError('')
     setSuccessMsg('')
 
+    const kandangOfMortalitas =
+      kandangList.find((k) => k.id === selectedMortalitas.kandang_id) || historyKandangObj
+
+    const { isValid, errors } = validateMortalitasForm(
+      editMortalitasForm,
+      kandangOfMortalitas,
+      true,
+      selectedMortalitas
+    )
+    if (!isValid) {
+      setEditMortalitasErrors(errors)
+      return
+    }
+
+    setSubmitting(true)
+
     try {
       const jumlahBaru = parseInt(editMortalitasForm.jumlah, 10)
-      if (isNaN(jumlahBaru) || jumlahBaru <= 0) {
-        throw new Error('Jumlah kematian harus berupa angka lebih dari 0.')
-      }
-
       const payload = {
         tanggal: editMortalitasForm.tanggal,
         jumlah: jumlahBaru,
@@ -316,10 +423,11 @@ export function KandangPage() {
       await updateMortalitas(selectedMortalitas.id, payload)
       setSuccessMsg(`Catatan mortalitas #${selectedMortalitas.id} berhasil dikoreksi! Populasi kandang disinkronisasi otomatis via Atomic Delta.`)
       setShowEditMortalitasModal(false)
+      setEditMortalitasErrors({})
       await reloadHistory()
       await loadKandang()
     } catch (err) {
-      setError(err.message || 'Gagal mengoreksi data mortalitas.')
+      setModalGeneralError(err.message || 'Gagal mengoreksi data mortalitas.')
     } finally {
       setSubmitting(false)
     }
@@ -394,11 +502,7 @@ export function KandangPage() {
             </button>
 
             <button
-              onClick={() => {
-                setError('')
-                setSuccessMsg('')
-                setShowCreateModal(true)
-              }}
+              onClick={openCreateModal}
               className="px-4 py-2.5 min-h-[44px] rounded-xl bg-brand hover:bg-brand-hover text-white font-bold text-xs shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
@@ -481,31 +585,28 @@ export function KandangPage() {
         <div className="inline-flex p-1 rounded-xl bg-surface-muted border border-border-subtle text-xs font-bold">
           <button
             onClick={() => setFilterStatus('semua')}
-            className={`px-3 py-2 min-h-[44px] rounded-lg transition cursor-pointer ${
-              filterStatus === 'semua'
+            className={`px-3 py-2 min-h-[44px] rounded-lg transition cursor-pointer ${filterStatus === 'semua'
                 ? 'bg-white text-content-primary shadow-xs'
                 : 'text-content-secondary hover:text-content-primary'
-            }`}
+              }`}
           >
             Semua ({totalKandang})
           </button>
           <button
             onClick={() => setFilterStatus('aktif')}
-            className={`px-3 py-2 min-h-[44px] rounded-lg transition cursor-pointer ${
-              filterStatus === 'aktif'
+            className={`px-3 py-2 min-h-[44px] rounded-lg transition cursor-pointer ${filterStatus === 'aktif'
                 ? 'bg-white text-brand shadow-xs'
                 : 'text-content-secondary hover:text-content-primary'
-            }`}
+              }`}
           >
             Aktif ({totalAktif})
           </button>
           <button
             onClick={() => setFilterStatus('afkir')}
-            className={`px-3 py-2 min-h-[44px] rounded-lg transition cursor-pointer ${
-              filterStatus === 'afkir'
+            className={`px-3 py-2 min-h-[44px] rounded-lg transition cursor-pointer ${filterStatus === 'afkir'
                 ? 'bg-white text-amber-700 shadow-xs'
                 : 'text-content-secondary hover:text-content-primary'
-            }`}
+              }`}
           >
             Afkir ({totalKandang - totalAktif})
           </button>
@@ -618,9 +719,8 @@ export function KandangPage() {
                     </div>
                     <div className="w-full h-2 rounded-full bg-surface-muted overflow-hidden border border-border-subtle">
                       <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          survivalRate > 90 ? 'bg-emerald-500' : survivalRate > 75 ? 'bg-amber-500' : 'bg-rose-500'
-                        }`}
+                        className={`h-full rounded-full transition-all duration-500 ${survivalRate > 90 ? 'bg-emerald-500' : survivalRate > 75 ? 'bg-amber-500' : 'bg-rose-500'
+                          }`}
                         style={{ width: `${Math.min(100, Math.max(0, survivalRate))}%` }}
                       />
                     </div>
@@ -671,19 +771,40 @@ export function KandangPage() {
         icon={<Home className="w-5 h-5 text-brand" />}
         maxWidth="max-w-md"
       >
-        <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
+        <form noValidate onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
+          {/* Modal-scoped General Error Banner */}
+          {modalGeneralError && (
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 animate-in fade-in duration-150">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+              <div className="flex-1 font-medium">{modalGeneralError}</div>
+            </div>
+          )}
+
           <div>
             <label className="block text-content-primary font-bold uppercase tracking-wider mb-1.5">
               Nama Kandang *
             </label>
             <input
               type="text"
-              required
               placeholder="Contoh: Kandang A1 / Kandang Layer Barat"
               value={createForm.nama_kandang}
-              onChange={(e) => setCreateForm({ ...createForm, nama_kandang: e.target.value })}
-              className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-brand text-sm"
+              onChange={(e) => {
+                setCreateForm({ ...createForm, nama_kandang: e.target.value })
+                if (createErrors.nama_kandang) {
+                  setCreateErrors((prev) => ({ ...prev, nama_kandang: undefined }))
+                }
+              }}
+              className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 text-sm transition ${createErrors.nama_kandang
+                  ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                  : 'bg-surface-page border-border-subtle focus:ring-brand'
+                }`}
             />
+            {createErrors.nama_kandang && (
+              <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                <span>{createErrors.nama_kandang}</span>
+              </p>
+            )}
           </div>
 
           <div>
@@ -692,11 +813,24 @@ export function KandangPage() {
             </label>
             <input
               type="date"
-              required
               value={createForm.tanggal_mulai}
-              onChange={(e) => setCreateForm({ ...createForm, tanggal_mulai: e.target.value })}
-              className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary focus:outline-none focus:ring-2 focus:ring-brand text-sm"
+              onChange={(e) => {
+                setCreateForm({ ...createForm, tanggal_mulai: e.target.value })
+                if (createErrors.tanggal_mulai) {
+                  setCreateErrors((prev) => ({ ...prev, tanggal_mulai: undefined }))
+                }
+              }}
+              className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border text-content-primary focus:outline-none focus:ring-2 text-sm transition ${createErrors.tanggal_mulai
+                  ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                  : 'bg-surface-page border-border-subtle focus:ring-brand'
+                }`}
             />
+            {createErrors.tanggal_mulai && (
+              <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                <span>{createErrors.tanggal_mulai}</span>
+              </p>
+            )}
           </div>
 
           <div>
@@ -706,16 +840,29 @@ export function KandangPage() {
             <input
               type="number"
               inputMode="numeric"
-              min="1"
-              required
               placeholder="Contoh: 1000"
               value={createForm.jumlah_awal}
-              onChange={(e) => setCreateForm({ ...createForm, jumlah_awal: e.target.value })}
-              className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-brand text-sm font-mono"
+              onChange={(e) => {
+                setCreateForm({ ...createForm, jumlah_awal: e.target.value })
+                if (createErrors.jumlah_awal) {
+                  setCreateErrors((prev) => ({ ...prev, jumlah_awal: undefined }))
+                }
+              }}
+              className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border text-content-primary placeholder-content-muted focus:outline-none focus:ring-2 text-sm font-mono transition ${createErrors.jumlah_awal
+                  ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                  : 'bg-surface-page border-border-subtle focus:ring-brand'
+                }`}
             />
-            <p className="text-[11px] text-content-secondary mt-1">
-              *Populasi saat ini otomatis diset sama dengan jumlah awal.
-            </p>
+            {createErrors.jumlah_awal ? (
+              <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                <span>{createErrors.jumlah_awal}</span>
+              </p>
+            ) : (
+              <p className="text-[11px] text-content-secondary mt-1">
+                *Populasi saat ini otomatis diset sama dengan jumlah awal.
+              </p>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border-subtle">
@@ -755,18 +902,39 @@ export function KandangPage() {
             icon={<Edit2 className="w-5 h-5 text-brand" />}
             maxWidth="max-w-md"
           >
-            <form onSubmit={handleEditSubmit} className="space-y-4 text-xs">
+            <form noValidate onSubmit={handleEditSubmit} className="space-y-4 text-xs">
+              {/* Modal-scoped General Error Banner */}
+              {modalGeneralError && (
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 animate-in fade-in duration-150">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+                  <div className="flex-1 font-medium">{modalGeneralError}</div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-content-primary font-bold uppercase tracking-wider mb-1.5">
                   Nama Kandang *
                 </label>
                 <input
                   type="text"
-                  required
                   value={editForm.nama_kandang}
-                  onChange={(e) => setEditForm({ ...editForm, nama_kandang: e.target.value })}
-                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                  onChange={(e) => {
+                    setEditForm({ ...editForm, nama_kandang: e.target.value })
+                    if (editErrors.nama_kandang) {
+                      setEditErrors((prev) => ({ ...prev, nama_kandang: undefined }))
+                    }
+                  }}
+                  className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border text-content-primary text-sm focus:outline-none focus:ring-2 transition ${editErrors.nama_kandang
+                      ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                      : 'bg-surface-page border-border-subtle focus:ring-brand'
+                    }`}
                 />
+                {editErrors.nama_kandang && (
+                  <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                    <span>{editErrors.nama_kandang}</span>
+                  </p>
+                )}
               </div>
 
               <div>
@@ -775,11 +943,24 @@ export function KandangPage() {
                 </label>
                 <input
                   type="date"
-                  required
                   value={editForm.tanggal_mulai}
-                  onChange={(e) => setEditForm({ ...editForm, tanggal_mulai: e.target.value })}
-                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                  onChange={(e) => {
+                    setEditForm({ ...editForm, tanggal_mulai: e.target.value })
+                    if (editErrors.tanggal_mulai) {
+                      setEditErrors((prev) => ({ ...prev, tanggal_mulai: undefined }))
+                    }
+                  }}
+                  className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border text-content-primary text-sm focus:outline-none focus:ring-2 transition ${editErrors.tanggal_mulai
+                      ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                      : 'bg-surface-page border-border-subtle focus:ring-brand'
+                    }`}
                 />
+                {editErrors.tanggal_mulai && (
+                  <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                    <span>{editErrors.tanggal_mulai}</span>
+                  </p>
+                )}
               </div>
 
               <div>
@@ -803,14 +984,24 @@ export function KandangPage() {
                 <input
                   type="number"
                   inputMode="numeric"
-                  min="1"
-                  required
                   value={editForm.jumlah_awal}
-                  onChange={(e) => setEditForm({ ...editForm, jumlah_awal: e.target.value })}
-                  className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border text-content-primary text-sm font-mono focus:outline-none focus:ring-2 ${
-                    isUnderflow ? 'border-rose-500 focus:ring-rose-500' : 'border-border-subtle focus:ring-brand'
-                  }`}
+                  onChange={(e) => {
+                    setEditForm({ ...editForm, jumlah_awal: e.target.value })
+                    if (editErrors.jumlah_awal) {
+                      setEditErrors((prev) => ({ ...prev, jumlah_awal: undefined }))
+                    }
+                  }}
+                  className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border text-content-primary text-sm font-mono focus:outline-none focus:ring-2 transition ${editErrors.jumlah_awal || isUnderflow
+                      ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                      : 'border-border-subtle focus:ring-brand'
+                    }`}
                 />
+                {editErrors.jumlah_awal && (
+                  <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                    <span>{editErrors.jumlah_awal}</span>
+                  </p>
+                )}
                 <p className="text-[11px] text-content-secondary mt-1.5 leading-relaxed">
                   💡 Mengubah jumlah awal akan otomatis menghitung ulang populasi saat ini berdasarkan seluruh catatan kematian.
                 </p>
@@ -827,13 +1018,12 @@ export function KandangPage() {
                 <div className="flex items-center justify-between text-content-secondary pt-1.5 border-t border-border-subtle">
                   <span>Estimasi Populasi Hidup Baru:</span>
                   <span
-                    className={`font-black font-mono ${
-                      isUnderflow
+                    className={`font-black font-mono ${isUnderflow
                         ? 'text-rose-700'
                         : estimasiPopulasiBaru !== null
-                        ? 'text-emerald-700'
-                        : 'text-content-muted'
-                    }`}
+                          ? 'text-emerald-700'
+                          : 'text-content-muted'
+                      }`}
                   >
                     {estimasiPopulasiBaru !== null ? `${formatNumber(estimasiPopulasiBaru)} ekor` : '-'}
                   </span>
@@ -881,23 +1071,45 @@ export function KandangPage() {
         icon={<TrendingDown className="w-5 h-5 text-rose-600" />}
         maxWidth="max-w-md"
       >
-        <form onSubmit={handleMortalitasSubmit} className="space-y-4 text-xs">
+        <form noValidate onSubmit={handleMortalitasSubmit} className="space-y-4 text-xs">
+          {/* Modal-scoped General Error Banner */}
+          {modalGeneralError && (
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 animate-in fade-in duration-150">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+              <div className="flex-1 font-medium">{modalGeneralError}</div>
+            </div>
+          )}
+
           <div>
             <label className="block text-content-primary font-bold uppercase tracking-wider mb-1.5">
               Pilih Kandang Aktif *
             </label>
             <select
-              required
               value={mortalitasForm.kandang_id}
-              onChange={(e) => setMortalitasForm({ ...mortalitasForm, kandang_id: e.target.value })}
-              className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 font-semibold"
+              onChange={(e) => {
+                setMortalitasForm({ ...mortalitasForm, kandang_id: e.target.value })
+                if (mortalitasErrors.kandang_id) {
+                  setMortalitasErrors((prev) => ({ ...prev, kandang_id: undefined }))
+                }
+              }}
+              className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border text-content-primary text-sm focus:outline-none focus:ring-2 font-semibold transition ${mortalitasErrors.kandang_id
+                  ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                  : 'bg-surface-page border-border-subtle focus:ring-rose-500'
+                }`}
             >
+              <option value="">-- Pilih Kandang Aktif --</option>
               {activeKandangList.map((k) => (
                 <option key={k.id} value={k.id}>
                   {k.nama_kandang} (Populasi: {formatNumber(k.jumlah_saat_ini)} ekor)
                 </option>
               ))}
             </select>
+            {mortalitasErrors.kandang_id && (
+              <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                <span>{mortalitasErrors.kandang_id}</span>
+              </p>
+            )}
           </div>
 
           <div>
@@ -906,11 +1118,24 @@ export function KandangPage() {
             </label>
             <input
               type="date"
-              required
               value={mortalitasForm.tanggal}
-              onChange={(e) => setMortalitasForm({ ...mortalitasForm, tanggal: e.target.value })}
-              className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
+              onChange={(e) => {
+                setMortalitasForm({ ...mortalitasForm, tanggal: e.target.value })
+                if (mortalitasErrors.tanggal) {
+                  setMortalitasErrors((prev) => ({ ...prev, tanggal: undefined }))
+                }
+              }}
+              className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border text-content-primary text-sm focus:outline-none focus:ring-2 transition ${mortalitasErrors.tanggal
+                  ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                  : 'bg-surface-page border-border-subtle focus:ring-rose-500'
+                }`}
             />
+            {mortalitasErrors.tanggal && (
+              <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                <span>{mortalitasErrors.tanggal}</span>
+              </p>
+            )}
           </div>
 
           <div>
@@ -920,19 +1145,29 @@ export function KandangPage() {
             <input
               type="number"
               inputMode="numeric"
-              min="1"
-              max={currentSelectedMortalitasKandang?.jumlah_saat_ini || 99999}
-              required
               placeholder="Contoh: 3"
               value={mortalitasForm.jumlah}
-              onChange={(e) => setMortalitasForm({ ...mortalitasForm, jumlah: e.target.value })}
-              className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary text-sm font-mono focus:outline-none focus:ring-2 focus:ring-rose-500"
+              onChange={(e) => {
+                setMortalitasForm({ ...mortalitasForm, jumlah: e.target.value })
+                if (mortalitasErrors.jumlah) {
+                  setMortalitasErrors((prev) => ({ ...prev, jumlah: undefined }))
+                }
+              }}
+              className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border text-content-primary text-sm font-mono focus:outline-none focus:ring-2 transition ${mortalitasErrors.jumlah
+                  ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                  : 'bg-surface-page border-border-subtle focus:ring-rose-500'
+                }`}
             />
-            {currentSelectedMortalitasKandang && (
+            {mortalitasErrors.jumlah ? (
+              <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                <span>{mortalitasErrors.jumlah}</span>
+              </p>
+            ) : currentSelectedMortalitasKandang ? (
               <p className="text-[11px] text-content-secondary mt-1">
                 *Maksimum input: {formatNumber(currentSelectedMortalitasKandang.jumlah_saat_ini)} ekor.
               </p>
-            )}
+            ) : null}
           </div>
 
           <div>
@@ -1107,18 +1342,39 @@ export function KandangPage() {
           icon={<Edit2 className="w-5 h-5 text-brand" />}
           maxWidth="max-w-md"
         >
-          <form onSubmit={handleEditMortalitasSubmit} className="space-y-4 text-xs">
+          <form noValidate onSubmit={handleEditMortalitasSubmit} className="space-y-4 text-xs">
+            {/* Modal-scoped General Error Banner */}
+            {modalGeneralError && (
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 animate-in fade-in duration-150">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+                <div className="flex-1 font-medium">{modalGeneralError}</div>
+              </div>
+            )}
+
             <div>
               <label className="block text-content-primary font-bold uppercase tracking-wider mb-1.5">
                 Tanggal Kematian *
               </label>
               <input
                 type="date"
-                required
                 value={editMortalitasForm.tanggal}
-                onChange={(e) => setEditMortalitasForm({ ...editMortalitasForm, tanggal: e.target.value })}
-                className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                onChange={(e) => {
+                  setEditMortalitasForm({ ...editMortalitasForm, tanggal: e.target.value })
+                  if (editMortalitasErrors.tanggal) {
+                    setEditMortalitasErrors((prev) => ({ ...prev, tanggal: undefined }))
+                  }
+                }}
+                className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border text-content-primary text-sm focus:outline-none focus:ring-2 transition ${editMortalitasErrors.tanggal
+                    ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                    : 'bg-surface-page border-border-subtle focus:ring-brand'
+                  }`}
               />
+              {editMortalitasErrors.tanggal && (
+                <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                  <span>{editMortalitasErrors.tanggal}</span>
+                </p>
+              )}
             </div>
 
             <div>
@@ -1128,12 +1384,24 @@ export function KandangPage() {
               <input
                 type="number"
                 inputMode="numeric"
-                min="1"
-                required
                 value={editMortalitasForm.jumlah}
-                onChange={(e) => setEditMortalitasForm({ ...editMortalitasForm, jumlah: e.target.value })}
-                className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand"
+                onChange={(e) => {
+                  setEditMortalitasForm({ ...editMortalitasForm, jumlah: e.target.value })
+                  if (editMortalitasErrors.jumlah) {
+                    setEditMortalitasErrors((prev) => ({ ...prev, jumlah: undefined }))
+                  }
+                }}
+                className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border text-content-primary text-sm font-mono focus:outline-none focus:ring-2 transition ${editMortalitasErrors.jumlah
+                    ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                    : 'border-border-subtle focus:ring-brand'
+                  }`}
               />
+              {editMortalitasErrors.jumlah && (
+                <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                  <span>{editMortalitasErrors.jumlah}</span>
+                </p>
+              )}
               <p className="text-[11px] text-content-secondary mt-1">
                 *Jumlah tercatat sebelumnya: <strong>{formatNumber(selectedMortalitas.jumlah)} ekor</strong>.
               </p>
