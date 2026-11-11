@@ -61,6 +61,47 @@ export function calculatePresetDates(preset) {
   return { start: '', end: '' }
 }
 
+// Helper validasi murni formulir produksi telur (Client-side Inline Validation)
+export function validateProduksiTelurForm(values, isCreate = true) {
+  const errors = {}
+
+  if (isCreate && (!values.kandang_id || String(values.kandang_id).trim() === '')) {
+    errors.kandang_id = 'Pilih salah satu kandang aktif.'
+  }
+
+  if (!values.tanggal || !values.tanggal.trim()) {
+    errors.tanggal = 'Tanggal panen wajib dipilih.'
+  }
+
+  const checkEggs = (val, fieldName, fieldLabel) => {
+    if (val === '' || val === null || val === undefined) {
+      errors[fieldName] = `${fieldLabel} wajib diisi (minimal 0).`
+      return null
+    }
+    const num = parseFloat(val)
+    if (isNaN(num) || num < 0 || !Number.isInteger(num)) {
+      errors[fieldName] = `${fieldLabel} harus berupa bilangan bulat non-negatif (>= 0).`
+      return null
+    }
+    return num
+  }
+
+  const normal = checkEggs(values.jumlah_butir_normal, 'jumlah_butir_normal', 'Jumlah butir normal')
+  const retak = checkEggs(values.jumlah_butir_retak, 'jumlah_butir_retak', 'Jumlah butir retak')
+  const pecah = checkEggs(values.jumlah_butir_pecah, 'jumlah_butir_pecah', 'Jumlah butir pecah')
+
+  if (normal !== null && retak !== null && pecah !== null) {
+    if (normal + retak + pecah === 0) {
+      errors.jumlah_butir_normal = 'Total panen telur tidak boleh 0 butir. Minimal salah satu kategori harus > 0.'
+    }
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+  }
+}
+
 export function ProduksiTelurPage() {
   const defaultDates = useMemo(() => calculatePresetDates('7days'), [])
   const [produksiList, setProduksiList] = useState([])
@@ -69,6 +110,11 @@ export function ProduksiTelurPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+
+  // Inline Validation States
+  const [createErrors, setCreateErrors] = useState({})
+  const [editErrors, setEditErrors] = useState({})
+  const [modalGeneralError, setModalGeneralError] = useState('')
 
   // Filter States - Sinkron dengan default 7 hari terakhir
   const [filterKandang, setFilterKandang] = useState('semua')
@@ -204,9 +250,11 @@ export function ProduksiTelurPage() {
   const openCreateModal = (kandangId = null) => {
     setError('')
     setSuccessMsg('')
+    setCreateErrors({})
+    setModalGeneralError('')
     setDuplicateConflict(null)
     const defaultKandangId =
-      kandangId || (kandangList.length > 0 ? kandangList[0].id : '')
+      kandangId || (kandangList.length > 0 ? String(kandangList[0].id) : '')
     setCreateForm({
       kandang_id: defaultKandangId,
       tanggal: formatLocalDate(),
@@ -221,20 +269,25 @@ export function ProduksiTelurPage() {
   // Handle Create Submit
   const handleCreateSubmit = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
+    setModalGeneralError('')
     setError('')
     setSuccessMsg('')
     setDuplicateConflict(null)
+
+    // Client-side pure validation
+    const { isValid, errors } = validateProduksiTelurForm(createForm, true)
+    if (!isValid) {
+      setCreateErrors(errors)
+      return
+    }
+
+    setSubmitting(true)
 
     try {
       const kandangId = parseInt(createForm.kandang_id, 10)
       const normal = parseInt(createForm.jumlah_butir_normal, 10)
       const retak = parseInt(createForm.jumlah_butir_retak || 0, 10)
       const pecah = parseInt(createForm.jumlah_butir_pecah || 0, 10)
-
-      if (!kandangId || isNaN(normal) || normal < 0 || isNaN(retak) || retak < 0 || isNaN(pecah) || pecah < 0) {
-        throw new Error('Semua input butir telur harus berupa angka valid (>= 0).')
-      }
 
       const payload = {
         kandang_id: kandangId,
@@ -248,6 +301,7 @@ export function ProduksiTelurPage() {
       await createProduksiTelur(payload)
       setSuccessMsg('Data produksi telur harian berhasil dicatat!')
       setShowCreateModal(false)
+      setCreateErrors({})
       await loadData()
     } catch (err) {
       if (err.status === 409) {
@@ -263,7 +317,7 @@ export function ProduksiTelurPage() {
           tanggal: createForm.tanggal,
         })
       } else {
-        setError(err.message || 'Gagal menyimpan data produksi telur.')
+        setModalGeneralError(err.message || 'Gagal menyimpan data produksi telur.')
       }
     } finally {
       setSubmitting(false)
@@ -287,11 +341,13 @@ export function ProduksiTelurPage() {
   // Open Edit Modal
   const openEditModal = (item) => {
     setSelectedProduksi(item)
+    setEditErrors({})
+    setModalGeneralError('')
     setEditForm({
       tanggal: item.tanggal,
-      jumlah_butir_normal: item.jumlah_butir_normal,
-      jumlah_butir_retak: item.jumlah_butir_retak,
-      jumlah_butir_pecah: item.jumlah_butir_pecah,
+      jumlah_butir_normal: item.jumlah_butir_normal !== null && item.jumlah_butir_normal !== undefined ? String(item.jumlah_butir_normal) : '',
+      jumlah_butir_retak: item.jumlah_butir_retak !== null && item.jumlah_butir_retak !== undefined ? String(item.jumlah_butir_retak) : '0',
+      jumlah_butir_pecah: item.jumlah_butir_pecah !== null && item.jumlah_butir_pecah !== undefined ? String(item.jumlah_butir_pecah) : '0',
       catatan: item.catatan || '',
     })
     setShowEditModal(true)
@@ -302,18 +358,23 @@ export function ProduksiTelurPage() {
     e.preventDefault()
     if (!selectedProduksi) return
 
-    setSubmitting(true)
+    setModalGeneralError('')
     setError('')
     setSuccessMsg('')
+
+    // Client-side pure validation
+    const { isValid, errors } = validateProduksiTelurForm(editForm, false)
+    if (!isValid) {
+      setEditErrors(errors)
+      return
+    }
+
+    setSubmitting(true)
 
     try {
       const normal = parseInt(editForm.jumlah_butir_normal, 10)
       const retak = parseInt(editForm.jumlah_butir_retak || 0, 10)
       const pecah = parseInt(editForm.jumlah_butir_pecah || 0, 10)
-
-      if (isNaN(normal) || normal < 0 || isNaN(retak) || retak < 0 || isNaN(pecah) || pecah < 0) {
-        throw new Error('Jumlah butir telur tidak boleh bernilai negatif.')
-      }
 
       const payload = {
         tanggal: editForm.tanggal,
@@ -326,9 +387,10 @@ export function ProduksiTelurPage() {
       await updateProduksiTelur(selectedProduksi.id, payload)
       setSuccessMsg(`Data produksi telur #${selectedProduksi.id} berhasil diperbarui!`)
       setShowEditModal(false)
+      setEditErrors({})
       await loadData()
     } catch (err) {
-      setError(err.message || 'Gagal memperbarui data produksi telur.')
+      setModalGeneralError(err.message || 'Gagal memperbarui data produksi telur.')
     } finally {
       setSubmitting(false)
     }
@@ -899,17 +961,33 @@ export function ProduksiTelurPage() {
           </div>
         )}
 
-        <form onSubmit={handleCreateSubmit} className="space-y-4">
+        {/* Modal-scoped General Error Banner */}
+        {modalGeneralError && (
+          <div className="mb-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 animate-in fade-in duration-150">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+            <div className="flex-1 font-medium">{modalGeneralError}</div>
+          </div>
+        )}
+
+        <form noValidate onSubmit={handleCreateSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-content-primary uppercase tracking-wider mb-1.5">
                 Pilih Kandang *
               </label>
               <select
-                required
                 value={createForm.kandang_id}
-                onChange={(e) => setCreateForm({ ...createForm, kandang_id: e.target.value })}
-                className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                onChange={(e) => {
+                  setCreateForm({ ...createForm, kandang_id: e.target.value })
+                  if (createErrors.kandang_id) {
+                    setCreateErrors((prev) => ({ ...prev, kandang_id: undefined }))
+                  }
+                }}
+                className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border text-content-primary text-sm focus:outline-none focus:ring-2 transition ${
+                  createErrors.kandang_id
+                    ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                    : 'bg-surface-page border-border-subtle focus:ring-brand'
+                }`}
               >
                 {kandangList.map((k) => (
                   <option key={k.id} value={k.id}>
@@ -917,6 +995,12 @@ export function ProduksiTelurPage() {
                   </option>
                 ))}
               </select>
+              {createErrors.kandang_id && (
+                <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                  <span>{createErrors.kandang_id}</span>
+                </p>
+              )}
             </div>
 
             <div>
@@ -925,11 +1009,25 @@ export function ProduksiTelurPage() {
               </label>
               <input
                 type="date"
-                required
                 value={createForm.tanggal}
-                onChange={(e) => setCreateForm({ ...createForm, tanggal: e.target.value })}
-                className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                onChange={(e) => {
+                  setCreateForm({ ...createForm, tanggal: e.target.value })
+                  if (createErrors.tanggal) {
+                    setCreateErrors((prev) => ({ ...prev, tanggal: undefined }))
+                  }
+                }}
+                className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border text-content-primary text-sm focus:outline-none focus:ring-2 transition ${
+                  createErrors.tanggal
+                    ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                    : 'bg-surface-page border-border-subtle focus:ring-brand'
+                }`}
               />
+              {createErrors.tanggal && (
+                <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                  <span>{createErrors.tanggal}</span>
+                </p>
+              )}
             </div>
           </div>
 
@@ -953,15 +1051,26 @@ export function ProduksiTelurPage() {
               <input
                 type="number"
                 inputMode="numeric"
-                min="0"
-                required
                 placeholder="Contoh: 850"
                 value={createForm.jumlah_butir_normal}
-                onChange={(e) =>
+                onChange={(e) => {
                   setCreateForm({ ...createForm, jumlah_butir_normal: e.target.value })
-                }
-                className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-white border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                  if (createErrors.jumlah_butir_normal) {
+                    setCreateErrors((prev) => ({ ...prev, jumlah_butir_normal: undefined }))
+                  }
+                }}
+                className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border text-content-primary text-sm focus:outline-none focus:ring-2 transition ${
+                  createErrors.jumlah_butir_normal
+                    ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                    : 'bg-white border-border-subtle focus:ring-brand'
+                }`}
               />
+              {createErrors.jumlah_butir_normal && (
+                <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                  <span>{createErrors.jumlah_butir_normal}</span>
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -972,13 +1081,25 @@ export function ProduksiTelurPage() {
                 <input
                   type="number"
                   inputMode="numeric"
-                  min="0"
                   value={createForm.jumlah_butir_retak}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setCreateForm({ ...createForm, jumlah_butir_retak: e.target.value })
-                  }
-                  className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-white border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                    if (createErrors.jumlah_butir_retak) {
+                      setCreateErrors((prev) => ({ ...prev, jumlah_butir_retak: undefined }))
+                    }
+                  }}
+                  className={`w-full px-3 py-2.5 min-h-[44px] rounded-xl border text-content-primary text-sm focus:outline-none focus:ring-2 transition ${
+                    createErrors.jumlah_butir_retak
+                      ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                      : 'bg-white border-border-subtle focus:ring-brand'
+                  }`}
                 />
+                {createErrors.jumlah_butir_retak && (
+                  <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                    <span>{createErrors.jumlah_butir_retak}</span>
+                  </p>
+                )}
               </div>
 
               <div>
@@ -988,13 +1109,25 @@ export function ProduksiTelurPage() {
                 <input
                   type="number"
                   inputMode="numeric"
-                  min="0"
                   value={createForm.jumlah_butir_pecah}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setCreateForm({ ...createForm, jumlah_butir_pecah: e.target.value })
-                  }
-                  className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-white border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                    if (createErrors.jumlah_butir_pecah) {
+                      setCreateErrors((prev) => ({ ...prev, jumlah_butir_pecah: undefined }))
+                    }
+                  }}
+                  className={`w-full px-3 py-2.5 min-h-[44px] rounded-xl border text-content-primary text-sm focus:outline-none focus:ring-2 transition ${
+                    createErrors.jumlah_butir_pecah
+                      ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                      : 'bg-white border-border-subtle focus:ring-brand'
+                  }`}
                 />
+                {createErrors.jumlah_butir_pecah && (
+                  <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                    <span>{createErrors.jumlah_butir_pecah}</span>
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1048,6 +1181,14 @@ export function ProduksiTelurPage() {
         subtitle="Perbarui kuantitas butir telur dan catatan panen."
         icon={<Edit2 className="w-5 h-5 text-emerald-600" />}
       >
+        {/* Modal-scoped General Error Banner */}
+        {modalGeneralError && (
+          <div className="mb-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 animate-in fade-in duration-150">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+            <div className="flex-1 font-medium">{modalGeneralError}</div>
+          </div>
+        )}
+
         {isEditAnomaly && (
           <div className="mb-4 p-3.5 rounded-xl bg-orange-50 border border-orange-200 text-orange-900 text-xs space-y-1.5">
             <div className="flex items-center gap-1.5 font-bold text-orange-800">
@@ -1063,18 +1204,32 @@ export function ProduksiTelurPage() {
           </div>
         )}
 
-        <form onSubmit={handleEditSubmit} className="space-y-4">
+        <form noValidate onSubmit={handleEditSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-content-primary uppercase tracking-wider mb-1.5">
               Tanggal Panen *
             </label>
             <input
               type="date"
-              required
               value={editForm.tanggal}
-              onChange={(e) => setEditForm({ ...editForm, tanggal: e.target.value })}
-              className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-surface-page border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              onChange={(e) => {
+                setEditForm({ ...editForm, tanggal: e.target.value })
+                if (editErrors.tanggal) {
+                  setEditErrors((prev) => ({ ...prev, tanggal: undefined }))
+                }
+              }}
+              className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border text-content-primary text-sm focus:outline-none focus:ring-2 transition ${
+                editErrors.tanggal
+                  ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                  : 'bg-surface-page border-border-subtle focus:ring-brand'
+              }`}
             />
+            {editErrors.tanggal && (
+              <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                <span>{editErrors.tanggal}</span>
+              </p>
+            )}
           </div>
 
           <div className="p-4 rounded-xl bg-surface-page border border-border-subtle space-y-3">
@@ -1096,14 +1251,25 @@ export function ProduksiTelurPage() {
               <input
                 type="number"
                 inputMode="numeric"
-                min="0"
-                required
                 value={editForm.jumlah_butir_normal}
-                onChange={(e) =>
+                onChange={(e) => {
                   setEditForm({ ...editForm, jumlah_butir_normal: e.target.value })
-                }
-                className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-white border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                  if (editErrors.jumlah_butir_normal) {
+                    setEditErrors((prev) => ({ ...prev, jumlah_butir_normal: undefined }))
+                  }
+                }}
+                className={`w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border text-content-primary text-sm focus:outline-none focus:ring-2 transition ${
+                  editErrors.jumlah_butir_normal
+                    ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                    : 'bg-white border-border-subtle focus:ring-brand'
+                }`}
               />
+              {editErrors.jumlah_butir_normal && (
+                <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                  <span>{editErrors.jumlah_butir_normal}</span>
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1114,13 +1280,25 @@ export function ProduksiTelurPage() {
                 <input
                   type="number"
                   inputMode="numeric"
-                  min="0"
                   value={editForm.jumlah_butir_retak}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setEditForm({ ...editForm, jumlah_butir_retak: e.target.value })
-                  }
-                  className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-white border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                    if (editErrors.jumlah_butir_retak) {
+                      setEditErrors((prev) => ({ ...prev, jumlah_butir_retak: undefined }))
+                    }
+                  }}
+                  className={`w-full px-3 py-2.5 min-h-[44px] rounded-xl border text-content-primary text-sm focus:outline-none focus:ring-2 transition ${
+                    editErrors.jumlah_butir_retak
+                      ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                      : 'bg-white border-border-subtle focus:ring-brand'
+                  }`}
                 />
+                {editErrors.jumlah_butir_retak && (
+                  <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                    <span>{editErrors.jumlah_butir_retak}</span>
+                  </p>
+                )}
               </div>
 
               <div>
@@ -1130,13 +1308,25 @@ export function ProduksiTelurPage() {
                 <input
                   type="number"
                   inputMode="numeric"
-                  min="0"
                   value={editForm.jumlah_butir_pecah}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setEditForm({ ...editForm, jumlah_butir_pecah: e.target.value })
-                  }
-                  className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-white border border-border-subtle text-content-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                    if (editErrors.jumlah_butir_pecah) {
+                      setEditErrors((prev) => ({ ...prev, jumlah_butir_pecah: undefined }))
+                    }
+                  }}
+                  className={`w-full px-3 py-2.5 min-h-[44px] rounded-xl border text-content-primary text-sm focus:outline-none focus:ring-2 transition ${
+                    editErrors.jumlah_butir_pecah
+                      ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20 text-rose-900 focus:ring-rose-200'
+                      : 'bg-white border-border-subtle focus:ring-brand'
+                  }`}
                 />
+                {editErrors.jumlah_butir_pecah && (
+                  <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in duration-150">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                    <span>{editErrors.jumlah_butir_pecah}</span>
+                  </p>
+                )}
               </div>
             </div>
 
